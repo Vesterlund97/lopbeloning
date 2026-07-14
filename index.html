@@ -218,7 +218,7 @@ const DEFAULTS={
 };
 
 let S=null;
-const $=id=>document.getElementById(id);
+const $=sel=>document.querySelector(sel);
 const nf=(n,d=0)=>Number(n).toLocaleString('sv-SE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const uid=()=>'x'+Math.random().toString(36).slice(2,8);
 
