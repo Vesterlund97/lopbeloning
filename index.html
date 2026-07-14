@@ -143,8 +143,8 @@
   nav button.active{color:var(--amber)}
 
   /* modal */
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;justify-content:center;z-index:50}
-  .modal-bg.show{display:flex}
+  .lb-scrim{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .lb-scrim.show{display:flex}
   .modal{background:var(--bg2);border:1px solid var(--line);border-top-left-radius:24px;border-top-right-radius:24px;
     width:100%;max-width:520px;padding:22px 20px calc(24px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;animation:up .28s ease}
   @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
@@ -189,7 +189,7 @@
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Inställn.</button>
   </nav>
 
-  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal"></div></div>
+  <div class="lb-scrim" id="lb-scrim"><div class="modal" id="modal"></div></div>
 
 <script>
 // ---------- storage (funkar i Claude-artifact via window.storage, och på GitHub Pages via localStorage) ----------
@@ -499,9 +499,9 @@ function editAch(id){
 
 // ---------- helpers ----------
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function openModal(html){$('#modal').innerHTML=html;$('#modal-bg').classList.add('show')}
-function closeModal(){$('#modal-bg').classList.remove('show')}
-$('#modal-bg').onclick=e=>{if(e.target.id==='modal-bg')closeModal()};
+function openModal(html){$('#modal').innerHTML=html;$('#lb-scrim')?.classList.add('show')}
+function closeModal(){$('#lb-scrim')?.classList.remove('show')}
+$('#lb-scrim')?.addEventListener('click',e=>{if(e.target.id==='lb-scrim')closeModal()});
 function flash(btn,txt){const o=btn.textContent;btn.textContent=txt;setTimeout(()=>btn.textContent=o,1200)}
 async function save(){await store.set(S)}
 
