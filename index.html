@@ -112,6 +112,10 @@
   .field input:focus,.field select:focus{outline:none;border-color:var(--amber)}
   .field .hint{font-size:11px;color:var(--mut2);margin-top:5px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  input[type="file"]{width:100%;color:var(--mut);font-size:13px}
+  input[type="file"]::file-selector-button{background:var(--card);color:var(--txt);border:1px solid var(--line);
+    border-radius:10px;padding:8px 12px;font-family:inherit;font-size:13px;font-weight:600;margin-right:10px;cursor:pointer}
+  input[type="file"]::file-selector-button:hover{border-color:var(--amber)}
 
   /* run list */
   .run{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px}
@@ -119,6 +123,8 @@
   .run .rk{font-family:'Barlow Condensed';font-weight:700;font-size:22px}
   .run .rc{font-size:12px;color:var(--mut);margin-left:auto}
   .run .beer{color:var(--amber);font-weight:600;font-size:13px;flex:0 0 auto}
+  .run .edit{color:var(--mut2);font-size:15px;padding:2px 6px;line-height:1}
+  .run .edit:hover{color:var(--foam)}
   .run .del{color:var(--mut2);font-size:20px;padding:2px 6px;line-height:1}
   .run .del:hover{color:var(--red)}
 
@@ -246,12 +252,13 @@ function dateKey(d){
   const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function todayKey(){
-  const tz=(S&&S.settings&&S.settings.timezone)||DEFAULT_TZ;
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+function currentTz(){return (S&&S.settings&&S.settings.timezone)||DEFAULT_TZ}
+function dateKeyInTz(d,tz){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
   const o={};parts.forEach(p=>o[p.type]=p.value);
   return `${o.year}-${o.month}-${o.day}`;
 }
+function todayKey(){return dateKeyInTz(new Date(),currentTz())}
 function mondayKey(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   const day=(d.getDay()+6)%7;
@@ -303,6 +310,143 @@ function achState(a,D){
   else if(a.cond==='total_kcal'){cur=D.totalKcal}
   const done=cur>=t;
   return{cur,done,times,pct:Math.min(1,t?cur/t:0)};
+}
+
+// ---------- import (Samsung Health-export m.fl.) ----------
+// Samsung Health har inget öppet automatiskt synk-API för webbappar. Detta
+// tolkar filen från "Samsung Health → ⋮ → Inställningar → Ladda ner
+// personuppgifter" (kolumner start_time/distance/calorie/exercise_type,
+// se Samsungs HealthConstants.Exercise), samt enklare CSV/JSON-export
+// från andra appar med igenkännbara kolumnnamn.
+function splitCSVLine(line){
+  const out=[];let cur='';let q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){
+      if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}
+      else cur+=c;
+    }else{
+      if(c==='"')q=true;
+      else if(c===','){out.push(cur);cur=''}
+      else cur+=c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function toDateFromRaw(raw){
+  if(typeof raw==='number'||/^\d+$/.test(raw)){
+    const n=+raw;
+    return new Date(n>1e12?n:n*1000); // epok i ms eller sekunder
+  }
+  return new Date(raw);
+}
+function parseImportCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(lines.length<2)return[];
+  const headers=splitCSVLine(lines[0]).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+  const find=(...names)=>{
+    for(const n of names){const i=headers.indexOf(n);if(i>=0)return i}
+    for(const n of names){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}
+    return -1;
+  };
+  const dateI=find('start_time','starttime','date','datum','time');
+  const kmI=find('distance','distans','km');
+  const kcalI=find('calorie','calories','kcal','kalorier');
+  const typeI=find('exercise_type','type');
+  if(dateI<0||kmI<0||kcalI<0)return[];
+  const tz=currentTz();const out=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=splitCSVLine(lines[i]);
+    if(cols.length<headers.length)continue;
+    let km=parseFloat(cols[kmI]);const kcal=parseFloat(cols[kcalI]);
+    if(!(km>0)||!(kcal>0))continue;
+    if(km>50)km=km/1000; // meter -> km
+    const d=toDateFromRaw(cols[dateI].trim());
+    if(isNaN(d))continue;
+    out.push({date:dateKeyInTz(d,tz),km:+km.toFixed(2),kcal:Math.round(kcal),type:typeI>=0?cols[typeI]:''});
+  }
+  return out;
+}
+function parseImportJSON(data){
+  let arr=Array.isArray(data)?data:null;
+  if(!arr){for(const k in data){if(Array.isArray(data[k])){arr=data[k];break}}}
+  if(!arr)return[];
+  const tz=currentTz();const out=[];
+  for(const rec of arr){
+    if(!rec||typeof rec!=='object')continue;
+    const lower={};for(const k in rec)lower[k.toLowerCase()]=rec[k];
+    const dRaw=lower.start_time??lower.starttime??lower.date??lower.create_time;
+    const kmRaw=lower.distance??lower.distance_km??lower.km;
+    const kcalRaw=lower.calorie??lower.calories??lower.kcal;
+    if(dRaw==null||kmRaw==null||kcalRaw==null)continue;
+    let km=+kmRaw;const kcal=+kcalRaw;
+    if(!(km>0)||!(kcal>0))continue;
+    if(km>50)km=km/1000;
+    const d=toDateFromRaw(dRaw);
+    if(isNaN(d))continue;
+    out.push({date:dateKeyInTz(d,tz),km:+km.toFixed(2),kcal:Math.round(kcal),type:lower.exercise_type??''});
+  }
+  return out;
+}
+function parseImportText(text){
+  const t=text.trim();
+  if(!t)return[];
+  if(t[0]==='['||t[0]==='{'){
+    try{return parseImportJSON(JSON.parse(t))}catch(e){return[]}
+  }
+  return parseImportCSV(t);
+}
+function openImportModal(){
+  openModal(`
+    <h3>Importera pass</h3>
+    <p style="color:var(--mut);font-size:13px;line-height:1.5;margin-bottom:14px">
+      Samsung Health har ingen automatisk synk mot webbappar, men du kan importera en export:
+      i Samsung Health-appen, tryck <b style="color:var(--foam)">⋮ → Inställningar → Ladda ner personuppgifter</b>,
+      packa upp zip-filen och välj CSV-filen som heter något i stil med
+      <b style="color:var(--foam)">com.samsung.health.exercise….csv</b> (i huvudmappen, inte i json-undermappen).
+      CSV/JSON-export från andra löpappar med kolumner för datum/distans/kalorier funkar också.
+    </p>
+    <input type="file" id="imp-file" accept=".csv,.json,text/csv,application/json">
+    <div id="imp-status" style="font-size:13px;color:var(--mut2);margin-top:10px"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Stäng</button></div>
+  `);
+  $('#imp-file').onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    $('#imp-status').textContent='Läser fil…';
+    const text=await file.text();
+    const rows=parseImportText(text);
+    if(!rows.length){$('#imp-status').textContent='Hittade inga pass — kolumner för datum/distans/kalorier kändes inte igen i filen.';return}
+    openImportPreview(rows);
+  };
+}
+function openImportPreview(rows){
+  rows.sort((a,b)=>b.date.localeCompare(a.date));
+  const existing=new Set(S.runs.map(r=>`${r.date}|${(+r.km).toFixed(2)}|${Math.round(+r.kcal)}`));
+  const rowsHtml=rows.map((r,i)=>{
+    const dup=existing.has(`${r.date}|${r.km.toFixed(2)}|${r.kcal}`);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px;${dup?'opacity:.45':''}">
+      <input type="checkbox" class="imp-row" data-i="${i}" ${dup?'':'checked'} style="width:16px;height:16px;flex:0 0 auto;accent-color:var(--amber)">
+      <span style="flex:0 0 78px;color:var(--mut)">${r.date}</span>
+      <span style="flex:0 0 64px">${nf(r.km,2)} km</span>
+      <span style="color:var(--mut)">${nf(r.kcal,0)} kcal</span>
+      ${dup?'<span style="margin-left:auto;font-size:11px;color:var(--mut2)">redan loggad</span>':r.type?`<span style="margin-left:auto;font-size:11px;color:var(--mut2)">typ ${esc(String(r.type))}</span>`:''}
+    </label>`;
+  }).join('');
+  openModal(`
+    <h3>Granska import</h3>
+    <p style="color:var(--mut);font-size:13px;margin-bottom:10px">${rows.length} pass hittades. Bocka ur det du inte vill ha med — möjliga dubbletter är avbockade och nedtonade.</p>
+    <div style="max-height:44vh;overflow:auto;margin-bottom:14px">${rowsHtml}</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Avbryt</button>
+      <button class="btn btn-amber" id="imp-confirm">Importera valda</button>
+    </div>
+  `);
+  $('#imp-confirm').onclick=async()=>{
+    const checked=[...document.querySelectorAll('.imp-row:checked')].map(c=>rows[+c.dataset.i]);
+    checked.forEach(r=>S.runs.push({id:uid(),date:r.date,km:r.km,kcal:r.kcal}));
+    await save();closeModal();renderLogga();
+  };
 }
 
 // ---------- render ----------
@@ -390,6 +534,7 @@ function renderLogga(){
       <span class="rk">${nf(r.km,2)}<span class="u" style="font-size:12px;color:var(--mut)"> km</span></span>
       <span class="rc">${nf(r.kcal,0)} kcal</span>
       <span class="beer">${nf(beer,1)} ${u}</span>
+      <button class="edit" data-edit-run="${r.id}">✎</button>
       <button class="del" data-del="${r.id}">×</button>
     </div>`}).join(''):`<div class="empty">Inga pass loggade än.<br>Lägg in din första runda ovan.</div>`;
 
@@ -403,6 +548,7 @@ function renderLogga(){
       </div>
       <button class="btn btn-amber" id="f-save" style="width:100%">Spara pass</button>
     </div>
+    <button class="btn btn-ghost" id="import-btn" style="width:100%;margin-top:10px">⇩ Importera pass (Samsung Health m.fl.)</button>
     <div class="sec-title">Loggade pass</div>
     ${rows}
   `;
@@ -417,6 +563,37 @@ function renderLogga(){
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
     S.runs=S.runs.filter(r=>r.id!==b.dataset.del);await save();renderLogga();
   });
+  document.querySelectorAll('[data-edit-run]').forEach(b=>b.onclick=()=>editRun(b.dataset.editRun));
+  $('#import-btn').onclick=openImportModal;
+}
+
+function editRun(id){
+  const r=S.runs.find(x=>x.id===id);if(!r)return;
+  const today=todayKey();
+  openModal(`
+    <h3>Redigera pass</h3>
+    <div class="field"><label>Datum</label><input type="date" id="e-date" value="${r.date}" max="${today}"></div>
+    <div class="two">
+      <div class="field"><label>Distans (km)</label><input type="number" id="e-km" inputmode="decimal" step="0.01" value="${r.km}"></div>
+      <div class="field"><label>Kalorier (kcal)</label><input type="number" id="e-kcal" inputmode="numeric" value="${r.kcal}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Avbryt</button>
+      <button class="btn btn-amber" id="e-save">Spara</button>
+    </div>
+    <button class="danger" id="e-del">Ta bort pass</button>
+  `);
+  $('#e-save').onclick=async()=>{
+    const km=parseFloat(($('#e-km').value||'').replace(',','.'));
+    const kcal=parseFloat(($('#e-kcal').value||'').replace(',','.'));
+    const date=$('#e-date').value;
+    if(!date||isNaN(km)||isNaN(kcal)||km<=0){$('#e-km').style.borderColor=isNaN(km)?'var(--red)':'';$('#e-kcal').style.borderColor=isNaN(kcal)?'var(--red)':'';return}
+    r.date=date;r.km=km;r.kcal=kcal;
+    await save();closeModal();renderLogga();
+  };
+  $('#e-del').onclick=async()=>{
+    S.runs=S.runs.filter(x=>x.id!==id);await save();closeModal();renderLogga();
+  };
 }
 
 function renderMal(){
