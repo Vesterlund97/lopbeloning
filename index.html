@@ -205,8 +205,9 @@ const store={
   }
 };
 
+const DEFAULT_TZ=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
 const DEFAULTS={
-  settings:{kcalPerBeer:250,needPerWeek:1,penaltyBeer:2,bankCap:3,unit:'öl'},
+  settings:{kcalPerBeer:250,needPerWeek:1,penaltyBeer:2,bankCap:3,unit:'öl',timezone:DEFAULT_TZ},
   runs:[],
   consumed:0,
   achievements:[
@@ -232,18 +233,31 @@ const CONDS={
 };
 
 // ---------- vecko-matematik (måndag som veckostart) ----------
+// OBS: toISOString() konverterar till UTC, vilket kan hoppa till fel kalenderdag
+// beroende på tidszon. "Vilken dag är idag" avgörs istället explicit av
+// S.settings.timezone (valbar i Inställningar), inte webbläsarens lokala zon.
+function dateKey(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayKey(){
+  const tz=(S&&S.settings&&S.settings.timezone)||DEFAULT_TZ;
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const o={};parts.forEach(p=>o[p.type]=p.value);
+  return `${o.year}-${o.month}-${o.day}`;
+}
 function mondayKey(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   const day=(d.getDay()+6)%7;
   d.setDate(d.getDate()-day);
-  return d.toISOString().slice(0,10);
+  return dateKey(d);
 }
 function weekList(){ // alla veckonycklar från första passet till denna vecka
   if(!S.runs.length)return[];
-  const today=new Date();const nowKey=mondayKey(today.toISOString().slice(0,10));
+  const nowKey=mondayKey(todayKey());
   const first=S.runs.map(r=>mondayKey(r.date)).sort()[0];
   const out=[];let cur=new Date(first+'T00:00:00');const end=new Date(nowKey+'T00:00:00');
-  while(cur<=end){out.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+7)}
+  while(cur<=end){out.push(dateKey(cur));cur.setDate(cur.getDate()+7)}
   return out;
 }
 function runsInWeek(wk){return S.runs.filter(r=>mondayKey(r.date)===wk).length}
@@ -254,7 +268,7 @@ function derive(){
   const totalKm=S.runs.reduce((a,r)=>a+(+r.km||0),0);
   const totalRuns=S.runs.length;
   const weeks=weekList();
-  const today=new Date();const nowKey=mondayKey(today.toISOString().slice(0,10));
+  const nowKey=mondayKey(todayKey());
   const missed=weeks.filter(w=>w!==nowKey&&runsInWeek(w)<need).length;
   // streak: från nuvarande vecka bakåt
   let streak=0;
@@ -361,7 +375,7 @@ function renderOversikt(){
 }
 
 function renderLogga(){
-  const u=S.settings.unit;const today=new Date().toISOString().slice(0,10);
+  const u=S.settings.unit;const today=todayKey();
   const runs=[...S.runs].sort((a,b)=>b.date.localeCompare(a.date));
   const rows=runs.length?runs.map(r=>{
     const beer=(+r.kcal||0)/S.settings.kcalPerBeer;
@@ -428,8 +442,14 @@ function renderMal(){
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editAch(b.dataset.edit));
 }
 
+const FALLBACK_TZS=['Europe/Stockholm','Europe/Helsinki','Europe/Oslo','Europe/Copenhagen','Europe/London','Europe/Berlin','UTC'];
+function tzList(){
+  try{const l=Intl.supportedValuesOf('timeZone');if(l&&l.length)return l}catch(e){}
+  return Array.from(new Set([...FALLBACK_TZS,DEFAULT_TZ]));
+}
 function renderInstallningar(){
   const s=S.settings;const u=s.unit;
+  const tzOpts=tzList().map(tz=>`<option value="${tz}" ${s.timezone===tz?'selected':''}>${tz}</option>`).join('');
   $('#v-installningar').innerHTML=`
     <div class="sec-title">Regler</div>
     <div class="tab-card" style="display:block;padding:6px 18px">
@@ -438,6 +458,7 @@ function renderInstallningar(){
       <div class="setline"><div><div class="sl">Straff per missad vecka</div><div class="sd">Antal ${u} som dras (saldo får gå minus)</div></div><input type="number" id="s-pen" value="${s.penaltyBeer}"></div>
       <div class="setline"><div><div class="sl">Bank-cap</div><div class="sd">Max sparade ${u}. 0 = ingen gräns</div></div><input type="number" id="s-cap" value="${s.bankCap}"></div>
       <div class="setline"><div><div class="sl">Enhet</div><div class="sd">Vad belöningen heter</div></div><input type="text" id="s-unit" value="${esc(s.unit)}" style="width:110px"></div>
+      <div class="setline"><div><div class="sl">Tidszon</div><div class="sd">Avgör vad som räknas som "idag" och veckogränser</div></div><select id="s-tz" style="width:170px">${tzOpts}</select></div>
     </div>
     <button class="btn btn-amber" id="s-save" style="width:100%;margin-top:16px">Spara regler</button>
     <button class="danger" id="s-reset">Nollställ all data</button>
@@ -448,7 +469,8 @@ function renderInstallningar(){
       needPerWeek:Math.max(1,parseInt($('#s-need').value)||1),
       penaltyBeer:Math.max(0,parseFloat($('#s-pen').value)||0),
       bankCap:Math.max(0,parseFloat($('#s-cap').value)||0),
-      unit:($('#s-unit').value||'öl').trim()
+      unit:($('#s-unit').value||'öl').trim(),
+      timezone:$('#s-tz').value||DEFAULT_TZ
     };
     await save();flash($('#s-save'),'Sparat ✓');renderInstallningar();
   };
