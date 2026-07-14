@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b07">
+<title>Löpbelöning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0b07;
+    --bg2:#141009;
+    --card:#1b1610;
+    --card2:#221b12;
+    --line:#332a1e;
+    --amber:#f5a623;
+    --amber-soft:#ffc861;
+    --foam:#f6e9cf;
+    --green:#5ac47e;
+    --red:#e0604f;
+    --cyan:#4fc4d6;
+    --purple:#b98cf0;
+    --txt:#f3ecdf;
+    --mut:#9a8e78;
+    --mut2:#6f6552;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{max-width:520px;margin:0 auto;min-height:100vh;padding:0 0 96px;position:relative;
+    background:radial-gradient(120% 60% at 50% -10%, #241a0e 0%, var(--bg) 55%);}
+  h1,h2,h3{font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px}
+  .mono{font-family:'Spline Sans Mono',monospace;font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select{font-family:inherit}
+
+  /* header */
+  header{padding:26px 22px 14px;display:flex;align-items:baseline;justify-content:space-between}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;text-transform:uppercase;letter-spacing:2.5px}
+  .brand b{color:var(--amber)}
+  .brand-sub{font-size:11px;color:var(--mut2);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+
+  .view{padding:0 18px;display:none;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* the tab / hero */
+  .tab-card{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+    border-radius:22px;padding:22px;display:flex;gap:18px;align-items:center;position:relative;overflow:hidden}
+  .glass-wrap{flex:0 0 84px;display:flex;flex-direction:column;align-items:center}
+  .glass{width:70px;height:104px}
+  .glass-label{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:1.5px;margin-top:6px}
+  .tab-main{flex:1;min-width:0}
+  .tab-lead{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mut)}
+  .tab-num{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:60px;line-height:.9;margin:2px 0 0;color:var(--amber)}
+  .tab-num.debt{color:var(--red)}
+  .tab-unit{font-size:15px;color:var(--mut);font-weight:600;font-family:'Inter'}
+  .tab-note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.4}
+  .tab-note b{color:var(--foam);font-weight:600}
+
+  .drink-row{display:flex;gap:10px;margin-top:14px}
+  .btn{border-radius:13px;padding:12px 14px;font-weight:600;font-size:14px;text-align:center;transition:transform .08s,filter .15s;border:1px solid transparent}
+  .btn:active{transform:scale(.97)}
+  .btn-amber{background:var(--amber);color:#241800;flex:1}
+  .btn-ghost{background:var(--card);border-color:var(--line);color:var(--txt)}
+  .btn-ghost:hover{border-color:var(--amber)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* week strip */
+  .week{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px}
+  .week-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .week-title{font-size:13px;font-weight:600;color:var(--foam)}
+  .streak-pill{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--amber);background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.25);padding:5px 11px;border-radius:20px}
+  .dots{display:flex;gap:8px}
+  .dot{flex:1;height:8px;border-radius:5px;background:#2a2216}
+  .dot.on{background:var(--green)}
+  .week-need{font-size:12px;color:var(--mut);margin-top:11px}
+
+  /* stat grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
+  .stat .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;margin-top:3px}
+  .stat .u{font-size:12px;color:var(--mut);font-weight:600;font-family:'Inter'}
+  .c-cyan{color:var(--cyan)} .c-green{color:var(--green)} .c-purple{color:var(--purple)} .c-amber{color:var(--amber)} .c-red{color:var(--red)}
+
+  .sec-title{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:1.5px;color:var(--mut);margin:26px 4px 12px}
+
+  /* ledger */
+  .ledger{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 16px}
+  .led-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .led-row:last-child{border-bottom:none}
+  .led-row .l{color:var(--mut)}
+  .led-row .r{font-weight:600}
+  .led-row.tot .l{color:var(--foam);font-weight:600}
+  .led-row.tot .r{font-size:16px}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+
+  /* forms */
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;color:var(--mut);font-weight:600;margin-bottom:6px;letter-spacing:.3px}
+  .field input,.field select{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+    padding:13px 14px;color:var(--txt);font-size:16px}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--amber)}
+  .field .hint{font-size:11px;color:var(--mut2);margin-top:5px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  /* run list */
+  .run{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px}
+  .run .rd{font-size:12px;color:var(--mut);flex:0 0 74px}
+  .run .rk{font-family:'Barlow Condensed';font-weight:700;font-size:22px}
+  .run .rc{font-size:12px;color:var(--mut);margin-left:auto}
+  .run .beer{color:var(--amber);font-weight:600;font-size:13px;flex:0 0 auto}
+  .run .del{color:var(--mut2);font-size:20px;padding:2px 6px;line-height:1}
+  .run .del:hover{color:var(--red)}
+
+  /* achievements */
+  .ach{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;margin-bottom:11px;position:relative;overflow:hidden}
+  .ach.done{border-color:rgba(245,166,35,.45);background:linear-gradient(150deg,rgba(245,166,35,.10),var(--card))}
+  .ach-top{display:flex;align-items:center;gap:10px}
+  .ach-ico{font-size:22px;flex:0 0 auto}
+  .ach-name{font-weight:600;font-size:15px;flex:1}
+  .ach-times{font-size:12px;font-weight:700;color:var(--amber);background:rgba(245,166,35,.14);padding:2px 8px;border-radius:10px}
+  .ach-edit{color:var(--mut2);font-size:15px;padding:2px 6px}
+  .ach-edit:hover{color:var(--foam)}
+  .ach-reward{font-size:13px;color:var(--amber-soft);margin:7px 0 10px;font-weight:500}
+  .ach-cond{font-size:12px;color:var(--mut)}
+  .bar{height:7px;background:#2a2216;border-radius:5px;overflow:hidden;margin-top:9px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--amber-soft));border-radius:5px;transition:width .5s ease}
+  .ach.done .bar>i{background:var(--green)}
+  .ach-prog{font-size:11px;color:var(--mut2);margin-top:6px;display:flex;justify-content:space-between}
+  .badge-done{position:absolute;top:12px;right:14px;font-size:11px;font-weight:700;color:var(--green);letter-spacing:1px}
+
+  .empty{text-align:center;color:var(--mut2);font-size:14px;padding:34px 20px;border:1px dashed var(--line);border-radius:16px;line-height:1.5}
+
+  /* nav */
+  nav{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:rgba(17,13,8,.92);
+    backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+  nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;color:var(--mut2);font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+  nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9}
+  nav button.active{color:var(--amber)}
+
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--line);border-top-left-radius:24px;border-top-right-radius:24px;
+    width:100%;max-width:520px;padding:22px 20px calc(24px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;animation:up .28s ease}
+  @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+  .modal h3{font-size:22px;text-transform:uppercase;letter-spacing:1px;margin-bottom:18px}
+  .modal-actions{display:flex;gap:10px;margin-top:8px}
+  .modal-actions .btn{flex:1}
+  .danger{color:var(--red);font-size:13px;font-weight:600;text-align:center;width:100%;padding:12px;margin-top:4px}
+
+  .setline{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-bottom:1px solid var(--line)}
+  .setline:last-of-type{border-bottom:none}
+  .setline .sl{font-size:14px}
+  .setline .sd{font-size:12px;color:var(--mut2);margin-top:2px}
+  .setline input{width:88px;text-align:right;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--txt);font-size:15px}
+  .setline input:focus{outline:none;border-color:var(--amber)}
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand">LÖP<b>BELÖNING</b></div>
+      <div class="brand-sub">spring · tjäna · skål</div>
+    </div>
+  </header>
+
+  <!-- ÖVERSIKT -->
+  <section class="view active" id="v-oversikt"></section>
+  <!-- LOGGA -->
+  <section class="view" id="v-logga"></section>
+  <!-- MÅL -->
+  <section class="view" id="v-mal"></section>
+  <!-- INSTÄLLNINGAR -->
+  <section class="view" id="v-installningar"></section>
+
+  <nav>
+    <button data-tab="oversikt" class="active">
+      <svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Översikt</button>
+    <button data-tab="logga">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Logga</button>
+    <button data-tab="mal">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M8.5 12L7 21l5-3 5 3-1.5-9"/></svg>Mål</button>
+    <button data-tab="installningar">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Inställn.</button>
+  </nav>
+
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal"></div></div>
+
+<script>
+// ---------- storage (funkar i Claude-artifact via window.storage, och på GitHub Pages via localStorage) ----------
+const KEY='lopbeloning_v1';
+const store={
+  async get(){
+    if(window.storage){try{const r=await window.storage.get(KEY);return r?JSON.parse(r.value):null}catch(e){return null}}
+    try{const v=localStorage.getItem(KEY);return v?JSON.parse(v):null}catch(e){return null}
+  },
+  async set(s){
+    if(window.storage){try{await window.storage.set(KEY,JSON.stringify(s))}catch(e){}return}
+    try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}
+  }
+};
+
+const DEFAULTS={
+  settings:{kcalPerBeer:250,needPerWeek:1,penaltyBeer:2,bankCap:3,unit:'öl'},
+  runs:[],
+  consumed:0,
+  achievements:[
+    {id:'a1',icon:'🍺',name:'Specialöl',cond:'run_km',threshold:5,reward:'En IPA istället för vardagsölen',repeatable:true},
+    {id:'a2',icon:'🥃',name:'Whiskyglas',cond:'run_km',threshold:10,reward:'1 glas whisky',repeatable:false},
+    {id:'a3',icon:'🔥',name:'Momentum',cond:'streak',threshold:3,reward:'Valfri premie du bestämmer',repeatable:false},
+    {id:'a4',icon:'🏆',name:'Hundralappen',cond:'total_km',threshold:100,reward:'En riktigt fin flaska',repeatable:false}
+  ]
+};
+
+let S=null;
+const $=id=>document.getElementById(id);
+const nf=(n,d=0)=>Number(n).toLocaleString('sv-SE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const uid=()=>'x'+Math.random().toString(36).slice(2,8);
+
+const CONDS={
+  run_km:{label:'Distans i ett pass',unit:'km',dec:1},
+  run_kcal:{label:'Kalorier i ett pass',unit:'kcal',dec:0},
+  streak:{label:'Streak',unit:'veckor i rad',dec:0},
+  total_km:{label:'Total distans',unit:'km',dec:0},
+  total_runs:{label:'Antal pass totalt',unit:'pass',dec:0},
+  total_kcal:{label:'Totala kalorier',unit:'kcal',dec:0}
+};
+
+// ---------- vecko-matematik (måndag som veckostart) ----------
+function mondayKey(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-day);
+  return d.toISOString().slice(0,10);
+}
+function weekList(){ // alla veckonycklar från första passet till denna vecka
+  if(!S.runs.length)return[];
+  const today=new Date();const nowKey=mondayKey(today.toISOString().slice(0,10));
+  const first=S.runs.map(r=>mondayKey(r.date)).sort()[0];
+  const out=[];let cur=new Date(first+'T00:00:00');const end=new Date(nowKey+'T00:00:00');
+  while(cur<=end){out.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+7)}
+  return out;
+}
+function runsInWeek(wk){return S.runs.filter(r=>mondayKey(r.date)===wk).length}
+
+function derive(){
+  const need=S.settings.needPerWeek;
+  const totalKcal=S.runs.reduce((a,r)=>a+(+r.kcal||0),0);
+  const totalKm=S.runs.reduce((a,r)=>a+(+r.km||0),0);
+  const totalRuns=S.runs.length;
+  const weeks=weekList();
+  const today=new Date();const nowKey=mondayKey(today.toISOString().slice(0,10));
+  const missed=weeks.filter(w=>w!==nowKey&&runsInWeek(w)<need).length;
+  // streak: från nuvarande vecka bakåt
+  let streak=0;
+  for(let i=weeks.length-1;i>=0;i--){
+    const w=weeks[i];const n=runsInWeek(w);
+    if(w===nowKey){ if(n>=need)streak++; }
+    else { if(n>=need)streak++; else break; }
+  }
+  const earned=totalKcal/S.settings.kcalPerBeer;
+  const penalty=missed*S.settings.penaltyBeer;
+  const saldo=earned-S.consumed-penalty;
+  const cap=S.settings.bankCap;
+  const capped=cap>0?Math.min(saldo,cap):saldo;
+  const thisWeekRuns=runsInWeek(nowKey);
+  return{totalKcal,totalKm,totalRuns,missed,streak,earned,penalty,saldo,capped,cap,thisWeekRuns,need,nowKey,weeks};
+}
+
+// ---------- achievement-progress ----------
+function achState(a,D){
+  const t=+a.threshold;let cur=0,times=0;
+  if(a.cond==='run_km'){cur=Math.max(0,...S.runs.map(r=>+r.km||0));times=S.runs.filter(r=>(+r.km||0)>=t).length}
+  else if(a.cond==='run_kcal'){cur=Math.max(0,...S.runs.map(r=>+r.kcal||0));times=S.runs.filter(r=>(+r.kcal||0)>=t).length}
+  else if(a.cond==='streak'){cur=D.streak}
+  else if(a.cond==='total_km'){cur=D.totalKm}
+  else if(a.cond==='total_runs'){cur=D.totalRuns}
+  else if(a.cond==='total_kcal'){cur=D.totalKcal}
+  const done=cur>=t;
+  return{cur,done,times,pct:Math.min(1,t?cur/t:0)};
+}
+
+// ---------- render ----------
+function beerGlass(fillPct){
+  const p=Math.max(0,Math.min(1,fillPct));
+  const top=88-(70*p); // liquid top y within body
+  const foamY=top-6;
+  return `<svg class="glass" viewBox="0 0 70 104">
+    <defs><linearGradient id="beer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc861"/><stop offset="1" stop-color="#e08a12"/></linearGradient></defs>
+    <clipPath id="cup"><path d="M12 16 h46 l-4 78 a6 6 0 0 1 -6 6 h-26 a6 6 0 0 1 -6 -6 z"/></clipPath>
+    <g clip-path="url(#cup)">
+      <rect x="8" y="${top}" width="56" height="100" fill="url(#beer)"/>
+      ${p>0.02?`<ellipse cx="35" cy="${foamY}" rx="27" ry="7" fill="#f6e9cf"/>`:''}
+    </g>
+    <path d="M12 16 h46 l-4 78 a6 6 0 0 1 -6 6 h-26 a6 6 0 0 1 -6 -6 z" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
+    <path d="M58 30 h7 a7 7 0 0 1 7 7 v22 a7 7 0 0 1 -7 7 h-6" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
+  </svg>`;
+}
+
+function renderOversikt(){
+  const D=derive();const u=S.settings.unit;
+  const inDebt=D.saldo<0;
+  const drinkable=Math.max(0,Math.floor(D.capped));
+  const fill=D.cap>0?D.capped/D.cap:Math.min(1,D.saldo/6);
+  const dots=Array.from({length:D.need},(_,i)=>`<div class="dot ${i<D.thisWeekRuns?'on':''}"></div>`).join('');
+  const capNote=D.cap>0&&D.saldo>D.cap?`<b>Cappat till ${nf(D.cap,1)}</b> — spring inte för att spara, spring för att springa.`:'';
+  let note;
+  if(inDebt) note=`Du ligger <b>${nf(Math.abs(D.saldo),1)} ${u}</b> back. Spring in skulden innan nästa helgöl är betald.`;
+  else if(drinkable>0) note=`Du har råd med <b>${drinkable} ${u}</b> just nu. ${capNote}`;
+  else note=`Nästan där — spring en runda till så är första ${u}en betald.`;
+
+  $('#v-oversikt').innerHTML=`
+    <div class="tab-card">
+      <div class="glass-wrap">${beerGlass(fill)}<div class="glass-label">notan</div></div>
+      <div class="tab-main">
+        <div class="tab-lead">Öl-saldo</div>
+        <div class="tab-num ${inDebt?'debt':''}">${nf(D.saldo,1)}<span class="tab-unit"> ${u}</span></div>
+        <div class="tab-note">${note}</div>
+      </div>
+    </div>
+
+    <div class="drink-row">
+      <button class="btn btn-amber" id="drink" ${drinkable<=0?'disabled':''}>Drick 1 ${u} –1</button>
+      <button class="btn btn-ghost" id="quicklog">+ Logga pass</button>
+    </div>
+
+    <div class="week">
+      <div class="week-top">
+        <div class="week-title">Denna vecka</div>
+        <div class="streak-pill">🔥 ${D.streak} v streak</div>
+      </div>
+      <div class="dots">${dots}</div>
+      <div class="week-need">${D.thisWeekRuns>=D.need
+        ? `Klart — helgölen är upplåst.`
+        : `${D.thisWeekRuns}/${D.need} pass. Kör ${D.need-D.thisWeekRuns} till så slipper du <b style="color:var(--red)">–${nf(S.settings.penaltyBeer,0)} ${u}</b>.`}</div>
+    </div>
+
+    <div class="grid">
+      <div class="stat"><div class="k c-cyan">Total distans</div><div class="v c-cyan">${nf(D.totalKm,1)}<span class="u"> km</span></div></div>
+      <div class="stat"><div class="k c-purple">Kalorier</div><div class="v c-purple">${nf(D.totalKcal,0)}<span class="u"> kcal</span></div></div>
+      <div class="stat"><div class="k c-green">Antal pass</div><div class="v c-green">${D.totalRuns}</div></div>
+      <div class="stat"><div class="k c-amber">Intjänat</div><div class="v c-amber">${nf(D.earned,1)}<span class="u"> ${u}</span></div></div>
+    </div>
+
+    <div class="sec-title">Notan i detalj</div>
+    <div class="ledger">
+      <div class="led-row"><span class="l">Intjänat (${nf(D.totalKcal,0)} kcal ÷ ${S.settings.kcalPerBeer})</span><span class="r pos">+${nf(D.earned,1)}</span></div>
+      <div class="led-row"><span class="l">Druckna ${u}</span><span class="r ${S.consumed>0?'neg':''}">${S.consumed>0?'−':''}${nf(S.consumed,1)}</span></div>
+      <div class="led-row"><span class="l">Missade veckor (${D.missed} × ${nf(S.settings.penaltyBeer,0)})</span><span class="r ${D.penalty>0?'neg':''}">${D.penalty>0?'−':''}${nf(D.penalty,1)}</span></div>
+      <div class="led-row tot"><span class="l">Saldo</span><span class="r ${inDebt?'neg':'pos'}">${nf(D.saldo,1)} ${u}</span></div>
+    </div>
+  `;
+  $('#drink').onclick=async()=>{S.consumed+=1;await save();renderOversikt()};
+  $('#quicklog').onclick=()=>go('logga');
+}
+
+function renderLogga(){
+  const u=S.settings.unit;const today=new Date().toISOString().slice(0,10);
+  const runs=[...S.runs].sort((a,b)=>b.date.localeCompare(a.date));
+  const rows=runs.length?runs.map(r=>{
+    const beer=(+r.kcal||0)/S.settings.kcalPerBeer;
+    return `<div class="run">
+      <span class="rd">${new Date(r.date+'T00:00:00').toLocaleDateString('sv-SE',{day:'numeric',month:'short'})}</span>
+      <span class="rk">${nf(r.km,2)}<span class="u" style="font-size:12px;color:var(--mut)"> km</span></span>
+      <span class="rc">${nf(r.kcal,0)} kcal</span>
+      <span class="beer">${nf(beer,1)} ${u}</span>
+      <button class="del" data-del="${r.id}">×</button>
+    </div>`}).join(''):`<div class="empty">Inga pass loggade än.<br>Lägg in din första runda ovan.</div>`;
+
+  $('#v-logga').innerHTML=`
+    <div class="sec-title">Logga ett pass</div>
+    <div class="tab-card" style="display:block;padding:18px">
+      <div class="field"><label>Datum</label><input type="date" id="f-date" value="${today}" max="${today}"></div>
+      <div class="two">
+        <div class="field"><label>Distans (km)</label><input type="number" id="f-km" inputmode="decimal" step="0.01" placeholder="4,01"></div>
+        <div class="field"><label>Kalorier (kcal)</label><input type="number" id="f-kcal" inputmode="numeric" placeholder="414"></div>
+      </div>
+      <button class="btn btn-amber" id="f-save" style="width:100%">Spara pass</button>
+    </div>
+    <div class="sec-title">Loggade pass</div>
+    ${rows}
+  `;
+  $('#f-save').onclick=async()=>{
+    const km=parseFloat(($('#f-km').value||'').replace(',','.'));
+    const kcal=parseFloat(($('#f-kcal').value||'').replace(',','.'));
+    const date=$('#f-date').value;
+    if(!date||isNaN(km)||isNaN(kcal)||km<=0){$('#f-km').style.borderColor=isNaN(km)?'var(--red)':'';$('#f-kcal').style.borderColor=isNaN(kcal)?'var(--red)':'';return}
+    S.runs.push({id:uid(),date,km,kcal});await save();
+    go('oversikt');
+  };
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    S.runs=S.runs.filter(r=>r.id!==b.dataset.del);await save();renderLogga();
+  });
+}
+
+function renderMal(){
+  const D=derive();const u=S.settings.unit;
+  const cards=S.achievements.map(a=>{
+    const st=achState(a,D);const c=CONDS[a.cond];
+    return `<div class="ach ${st.done?'done':''}">
+      ${st.done?'<span class="badge-done">UPPLÅST</span>':''}
+      <div class="ach-top">
+        <span class="ach-ico">${a.icon||'🎯'}</span>
+        <span class="ach-name">${esc(a.name)}</span>
+        ${a.repeatable&&st.times>0?`<span class="ach-times">×${st.times}</span>`:''}
+        <button class="ach-edit" data-edit="${a.id}">✎</button>
+      </div>
+      <div class="ach-reward">🎁 ${esc(a.reward)}</div>
+      <div class="ach-cond">${c.label} ≥ ${nf(a.threshold,c.dec)} ${c.unit}${a.repeatable?' · repeterbart':''}</div>
+      <div class="bar"><i style="width:${(st.pct*100).toFixed(0)}%"></i></div>
+      <div class="ach-prog"><span>${nf(st.cur,c.dec)} / ${nf(a.threshold,c.dec)} ${c.unit}</span><span>${(st.pct*100).toFixed(0)}%</span></div>
+    </div>`}).join('');
+  $('#v-mal').innerHTML=`
+    <div class="sec-title">Dina mål & belöningar</div>
+    ${S.achievements.length?cards:'<div class="empty">Inga mål än.<br>Skapa ditt första nedan.</div>'}
+    <button class="btn btn-ghost" id="add-ach" style="width:100%;margin-top:6px">+ Nytt mål</button>
+    <div class="empty" style="margin-top:16px;border:none;color:var(--mut2);font-size:12px">
+      Mål låser upp sig själva när ett pass eller din totala statistik når tröskeln.
+    </div>
+  `;
+  $('#add-ach').onclick=()=>editAch(null);
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editAch(b.dataset.edit));
+}
+
+function renderInstallningar(){
+  const s=S.settings;const u=s.unit;
+  $('#v-installningar').innerHTML=`
+    <div class="sec-title">Regler</div>
+    <div class="tab-card" style="display:block;padding:6px 18px">
+      <div class="setline"><div><div class="sl">Kalorier per ${u}</div><div class="sd">Högre = du får springa mer per belöning</div></div><input type="number" id="s-kcal" value="${s.kcalPerBeer}"></div>
+      <div class="setline"><div><div class="sl">Pass per vecka</div><div class="sd">Kravet för att slippa straff</div></div><input type="number" id="s-need" value="${s.needPerWeek}"></div>
+      <div class="setline"><div><div class="sl">Straff per missad vecka</div><div class="sd">Antal ${u} som dras (saldo får gå minus)</div></div><input type="number" id="s-pen" value="${s.penaltyBeer}"></div>
+      <div class="setline"><div><div class="sl">Bank-cap</div><div class="sd">Max sparade ${u}. 0 = ingen gräns</div></div><input type="number" id="s-cap" value="${s.bankCap}"></div>
+      <div class="setline"><div><div class="sl">Enhet</div><div class="sd">Vad belöningen heter</div></div><input type="text" id="s-unit" value="${esc(s.unit)}" style="width:110px"></div>
+    </div>
+    <button class="btn btn-amber" id="s-save" style="width:100%;margin-top:16px">Spara regler</button>
+    <button class="danger" id="s-reset">Nollställ all data</button>
+  `;
+  $('#s-save').onclick=async()=>{
+    S.settings={
+      kcalPerBeer:Math.max(1,parseFloat($('#s-kcal').value)||250),
+      needPerWeek:Math.max(1,parseInt($('#s-need').value)||1),
+      penaltyBeer:Math.max(0,parseFloat($('#s-pen').value)||0),
+      bankCap:Math.max(0,parseFloat($('#s-cap').value)||0),
+      unit:($('#s-unit').value||'öl').trim()
+    };
+    await save();flash($('#s-save'),'Sparat ✓');renderInstallningar();
+  };
+  $('#s-reset').onclick=()=>{
+    openModal(`<h3>Nollställa?</h3><p style="color:var(--mut);font-size:14px;line-height:1.5;margin-bottom:18px">Detta raderar alla pass, mål och inställningar. Går inte att ångra.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Avbryt</button><button class="btn" style="background:var(--red);color:#fff" id="do-reset">Radera allt</button></div>`);
+    $('#do-reset').onclick=async()=>{S=JSON.parse(JSON.stringify(DEFAULTS));await save();closeModal();go('oversikt')};
+  };
+}
+
+// ---------- achievement editor ----------
+function editAch(id){
+  const a=id?S.achievements.find(x=>x.id===id):{icon:'🎯',name:'',cond:'run_km',threshold:5,reward:'',repeatable:false};
+  const opts=Object.entries(CONDS).map(([k,v])=>`<option value="${k}" ${a.cond===k?'selected':''}>${v.label} (${v.unit})</option>`).join('');
+  const icons=['🍺','🥃','🍷','🎯','🔥','🏆','⭐','🏅','🚀','🍾'];
+  const iconBtns=icons.map(ic=>`<button type="button" class="ic-pick" data-ic="${ic}" style="font-size:22px;padding:8px;border-radius:10px;border:1px solid ${a.icon===ic?'var(--amber)':'var(--line)'};background:${a.icon===ic?'rgba(245,166,35,.12)':'var(--bg2)'}">${ic}</button>`).join('');
+  openModal(`
+    <h3>${id?'Redigera mål':'Nytt mål'}</h3>
+    <div class="field"><label>Ikon</label><div style="display:flex;gap:6px;flex-wrap:wrap" id="ic-row">${iconBtns}</div></div>
+    <div class="field"><label>Namn</label><input type="text" id="a-name" value="${esc(a.name)}" placeholder="t.ex. Whiskyglas"></div>
+    <div class="field"><label>Belöning</label><input type="text" id="a-reward" value="${esc(a.reward)}" placeholder="t.ex. 1 glas whisky"></div>
+    <div class="two">
+      <div class="field"><label>Villkor</label><select id="a-cond">${opts}</select></div>
+      <div class="field"><label>Tröskel</label><input type="number" id="a-th" value="${a.threshold}" inputmode="decimal" step="any"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--mut);margin-bottom:18px;cursor:pointer">
+      <input type="checkbox" id="a-rep" ${a.repeatable?'checked':''} style="width:18px;height:18px;accent-color:var(--amber)"> Repeterbart (låses upp varje gång, t.ex. per pass)
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Avbryt</button>
+      <button class="btn btn-amber" id="a-save">Spara</button>
+    </div>
+    ${id?'<button class="danger" id="a-del">Ta bort mål</button>':''}
+  `);
+  let chosen=a.icon;
+  document.querySelectorAll('.ic-pick').forEach(b=>b.onclick=()=>{chosen=b.dataset.ic;
+    document.querySelectorAll('.ic-pick').forEach(x=>{x.style.borderColor='var(--line)';x.style.background='var(--bg2)'});
+    b.style.borderColor='var(--amber)';b.style.background='rgba(245,166,35,.12)'});
+  $('#a-save').onclick=async()=>{
+    const name=$('#a-name').value.trim()||'Mål';
+    const obj={id:id||uid(),icon:chosen,name,reward:$('#a-reward').value.trim()||'Belöning',
+      cond:$('#a-cond').value,threshold:parseFloat(($('#a-th').value||'0').replace(',','.'))||0,repeatable:$('#a-rep').checked};
+    if(id)S.achievements=S.achievements.map(x=>x.id===id?obj:x);else S.achievements.push(obj);
+    await save();closeModal();renderMal();
+  };
+  if(id)$('#a-del').onclick=async()=>{S.achievements=S.achievements.filter(x=>x.id!==id);await save();closeModal();renderMal()};
+}
+
+// ---------- helpers ----------
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function openModal(html){$('#modal').innerHTML=html;$('#modal-bg').classList.add('show')}
+function closeModal(){$('#modal-bg').classList.remove('show')}
+$('#modal-bg').onclick=e=>{if(e.target.id==='modal-bg')closeModal()};
+function flash(btn,txt){const o=btn.textContent;btn.textContent=txt;setTimeout(()=>btn.textContent=o,1200)}
+async function save(){await store.set(S)}
+
+const RENDER={oversikt:renderOversikt,logga:renderLogga,mal:renderMal,installningar:renderInstallningar};
+function go(tab){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $('#v-'+tab).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  RENDER[tab]();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
+
+// ---------- boot ----------
+(async()=>{
+  const saved=await store.get();
+  S=saved||JSON.parse(JSON.stringify(DEFAULTS));
+  // migrera nya nycklar om gammal data saknar dem
+  S.settings=Object.assign({},DEFAULTS.settings,S.settings);
+  S.consumed=S.consumed||0;
+  renderOversikt();
+})();
+</script>
+</body>
+</html>
