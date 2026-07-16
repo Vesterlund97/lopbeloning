@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0d0b07">
-<title>Löpbelöning</title>
+<title>Galopp</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-512.png" sizes="512x512" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Löpbelöning">
+<meta name="apple-mobile-web-app-title" content="Galopp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -193,7 +193,7 @@
 <body>
   <header>
     <div>
-      <div class="brand">LÖP<b>BELÖNING</b></div>
+      <div class="brand">GAL<b>OPP</b></div>
       <div class="brand-sub">spring · tjäna · skål</div>
     </div>
   </header>
@@ -580,7 +580,7 @@ function openBackupExportModal(){
     URL.revokeObjectURL(url);
   };
   const shareBtn=$('#bak-share');
-  if(shareBtn)shareBtn.onclick=async()=>{try{await navigator.share({files:[file],title:'Löpbelöning-backup'})}catch(e){}};
+  if(shareBtn)shareBtn.onclick=async()=>{try{await navigator.share({files:[file],title:'Galopp-backup'})}catch(e){}};
   $('#bak-copy').onclick=async()=>{
     try{await navigator.clipboard.writeText(jsonText);flash($('#bak-copy'),'Kopierat ✓')}
     catch(e){$('#bak-copy-status').textContent='Kunde inte kopiera automatiskt — markera texten ovan och kopiera manuellt.'}
@@ -604,7 +604,7 @@ function openBackupImportModal(){
     const r=validateAndMigrateBackup(text);
     if(!r.ok){
       $('#bak-import-status').textContent = r.code==='wrongapp'
-        ? 'Den här filen kommer inte från Löpbelöning.'
+        ? 'Den här filen kommer inte från Galopp.'
         : 'Filen gick inte att läsa. Välj en lopbeloning-backupfil (.json).';
       e.target.value='';
       return;

@@ -1,6 +1,6 @@
 {
-  "name": "Löpbelöning",
-  "short_name": "Löpbelöning",
+  "name": "Galopp",
+  "short_name": "Galopp",
   "description": "Tjäna öl av förbrända kalorier – spring varje vecka.",
   "start_url": "./index.html",
   "scope": "./",
