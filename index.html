@@ -104,6 +104,19 @@
   .led-row.tot .r{font-size:16px}
   .pos{color:var(--green)} .neg{color:var(--red)}
 
+  /* historik */
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;margin-top:14px}
+  .seg button{flex:1;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;color:var(--mut);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seg button.active{background:var(--amber);color:#241800}
+  .hk-bar{cursor:pointer}
+  .hk-met{fill:var(--green)}
+  .hk-missed{fill:var(--red)}
+  .hk-pending{fill:var(--amber);opacity:.5}
+  .hk-sel{stroke:var(--foam);stroke-width:1.5}
+  .dot-sm{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--red)}
+  .dot-sm.on{background:var(--green)}
+  .dot-sm.pending{background:var(--amber);opacity:.6}
+
   /* forms */
   .field{margin-bottom:15px}
   .field label{display:block;font-size:12px;color:var(--mut);font-weight:600;margin-bottom:6px;letter-spacing:.3px}
@@ -116,6 +129,10 @@
   input[type="file"]::file-selector-button{background:var(--card);color:var(--txt);border:1px solid var(--line);
     border-radius:10px;padding:8px 12px;font-family:inherit;font-size:13px;font-weight:600;margin-right:10px;cursor:pointer}
   input[type="file"]::file-selector-button:hover{border-color:var(--amber)}
+  .field textarea{width:100%;min-height:120px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;color:var(--txt);font-size:12px;font-family:'Spline Sans Mono',monospace;resize:vertical}
+  .field textarea:focus{outline:none;border-color:var(--amber)}
+  details{color:var(--mut);font-size:13px}
+  details summary{cursor:pointer;color:var(--foam);font-weight:600;margin:14px 0 8px}
 
   /* run list */
   .run{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px}
@@ -187,6 +204,8 @@
   <section class="view" id="v-logga"></section>
   <!-- MÅL -->
   <section class="view" id="v-mal"></section>
+  <!-- HISTORIK -->
+  <section class="view" id="v-historik"></section>
   <!-- INSTÄLLNINGAR -->
   <section class="view" id="v-installningar"></section>
 
@@ -197,6 +216,8 @@
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Logga</button>
     <button data-tab="mal">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M8.5 12L7 21l5-3 5 3-1.5-9"/></svg>Mål</button>
+    <button data-tab="historik">
+      <svg viewBox="0 0 24 24"><path d="M5 21V13M12 21V7M19 21V16"/></svg>Historik</button>
     <button data-tab="installningar">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Inställn.</button>
   </nav>
@@ -231,6 +252,7 @@ const DEFAULTS={
 };
 
 let S=null;
+let historikMetric='km'; // 'km'|'kcal'|'ol' — ren UI-state, sparas inte i S
 const $=sel=>document.querySelector(sel);
 const nf=(n,d=0)=>Number(n).toLocaleString('sv-SE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const uid=()=>'x'+Math.random().toString(36).slice(2,8);
@@ -264,6 +286,18 @@ function mondayKey(dateStr){
   const day=(d.getDay()+6)%7;
   d.setDate(d.getDate()-day);
   return dateKey(d);
+}
+function isoWeekNum(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day+3);
+  const firstThu=new Date(d.getFullYear(),0,4);
+  const fDay=(firstThu.getDay()+6)%7;firstThu.setDate(firstThu.getDate()-fDay+3);
+  return 1+Math.round((d-firstThu)/(7*864e5));
+}
+function weekSpanLabel(wk){
+  const start=new Date(wk+'T00:00:00');const end=new Date(start);end.setDate(end.getDate()+6);
+  const fmt=d=>d.toLocaleDateString('sv-SE',{day:'numeric',month:'short'});
+  return start.getMonth()===end.getMonth() ? `${start.getDate()}–${fmt(end)}` : `${fmt(start)}–${fmt(end)}`;
 }
 function weekList(){ // alla veckonycklar från första passet till denna vecka
   if(!S.runs.length)return[];
@@ -310,6 +344,34 @@ function achState(a,D){
   else if(a.cond==='total_kcal'){cur=D.totalKcal}
   const done=cur>=t;
   return{cur,done,times,pct:Math.min(1,t?cur/t:0)};
+}
+
+// ---------- historik: veckoaggregering ----------
+function weekAgg(wk){
+  const rows=S.runs.filter(r=>mondayKey(r.date)===wk);
+  const km=rows.reduce((a,r)=>a+(+r.km||0),0);
+  const kcal=rows.reduce((a,r)=>a+(+r.kcal||0),0);
+  const runs=rows.length;
+  const beers=kcal/S.settings.kcalPerBeer;
+  const met=runs>=S.settings.needPerWeek;
+  const isCurrent=wk===mondayKey(todayKey());
+  const status=met?'met':(isCurrent?'pending':'missed');
+  return{wk,km,kcal,runs,beers,met,isCurrent,status};
+}
+function historyWeeks(){return weekList().map(weekAgg).reverse()} // nyast-först
+function recentWeeks(n=12){return historyWeeks().slice(0,n).reverse()} // kronologisk, för diagrammet
+function metricValue(w,metric){return metric==='kcal'?w.kcal:metric==='ol'?w.beers:w.km}
+
+function longestStreakEver(){
+  const weeks=weekList();const nowKey=mondayKey(todayKey());
+  let best=0,cur=0;
+  for(const w of weeks){
+    const met=runsInWeek(w)>=S.settings.needPerWeek;
+    if(w===nowKey){if(met){cur++;best=Math.max(best,cur)}}
+    else if(met){cur++;best=Math.max(best,cur)}
+    else{cur=0}
+  }
+  return best;
 }
 
 // ---------- import (Samsung Health-export m.fl.) ----------
@@ -449,6 +511,130 @@ function openImportPreview(rows){
   };
 }
 
+// ---------- backup: export/import av all appdata ----------
+// Detta är HELA appens state (settings+runs+consumed+achievements), inte att
+// förväxla med löppass-importen ovan som bara lägger till rader i S.runs.
+const BACKUP_VERSION=1;
+// Migrationskedja: nyckel = version man migrerar FRÅN; värde = fn(parsed)->parsed@version+1.
+// Bara version 1 finns idag — lägg till nästa steg här när BACKUP_VERSION höjs,
+// rör aldrig tidigare steg.
+const BACKUP_MIGRATIONS={};
+function migrateBackup(parsed){
+  let cur=parsed;
+  while(cur.version<BACKUP_VERSION){
+    const step=BACKUP_MIGRATIONS[cur.version];
+    if(!step)throw new Error('no migration path from version '+cur.version);
+    cur=step(cur);
+  }
+  if(cur.version!==BACKUP_VERSION)throw new Error('unsupported version '+cur.version);
+  return cur;
+}
+function validateAndMigrateBackup(text){
+  let parsed;
+  try{parsed=JSON.parse(text)}catch(e){return{ok:false,code:'unreadable'}}
+  if(!parsed||typeof parsed!=='object')return{ok:false,code:'unreadable'};
+  if(parsed.app!=='lopbeloning')return{ok:false,code:'wrongapp'};
+  if(typeof parsed.version!=='number')return{ok:false,code:'unreadable'};
+  let migrated;
+  try{migrated=migrateBackup(parsed)}catch(e){return{ok:false,code:'wrongapp'}}
+  const d=migrated.data;
+  if(!d||typeof d!=='object'||!Array.isArray(d.runs)||!Array.isArray(d.achievements)||typeof d.settings!=='object')
+    return{ok:false,code:'unreadable'};
+  return{ok:true,migrated};
+}
+function backupPayload(){
+  return{app:'lopbeloning',version:BACKUP_VERSION,exportedAt:new Date().toISOString(),
+    data:{settings:S.settings,runs:S.runs,consumed:S.consumed,achievements:S.achievements}};
+}
+function backupFilename(){return `lopbeloning-backup-${todayKey()}.json`}
+
+function openBackupExportModal(){
+  const jsonText=JSON.stringify(backupPayload(),null,2);
+  const filename=backupFilename();
+  const file=new File([jsonText],filename,{type:'application/json'});
+  let canShare=false;
+  try{canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
+  openModal(`
+    <h3>Exportera data</h3>
+    <p style="color:var(--mut);font-size:13px;line-height:1.5;margin-bottom:16px">
+      Laddar ner all din data (pass, mål, inställningar, druckna ${esc(S.settings.unit)}) som en fil du kan spara eller föra över till en annan enhet.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-amber" id="bak-download">Ladda ner</button>
+      ${canShare?'<button class="btn btn-ghost" id="bak-share">Dela</button>':''}
+    </div>
+    <details style="margin-top:16px">
+      <summary>Visa som text</summary>
+      <div class="field"><textarea id="bak-text" readonly>${esc(jsonText)}</textarea></div>
+      <button class="btn btn-ghost" id="bak-copy">Kopiera</button>
+      <div id="bak-copy-status" style="font-size:12px;color:var(--mut2);margin-top:6px"></div>
+    </details>
+    <div class="modal-actions" style="margin-top:16px"><button class="btn btn-ghost" onclick="closeModal()">Stäng</button></div>
+  `);
+  $('#bak-download').onclick=()=>{
+    const blob=new Blob([jsonText],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const shareBtn=$('#bak-share');
+  if(shareBtn)shareBtn.onclick=async()=>{try{await navigator.share({files:[file],title:'Löpbelöning-backup'})}catch(e){}};
+  $('#bak-copy').onclick=async()=>{
+    try{await navigator.clipboard.writeText(jsonText);flash($('#bak-copy'),'Kopierat ✓')}
+    catch(e){$('#bak-copy-status').textContent='Kunde inte kopiera automatiskt — markera texten ovan och kopiera manuellt.'}
+  };
+}
+
+function openBackupImportModal(){
+  openModal(`
+    <h3>Importera data</h3>
+    <p style="color:var(--mut);font-size:13px;line-height:1.5;margin-bottom:14px">
+      Välj en tidigare exporterad backupfil (.json). Din nuvarande data ersätts inte förrän du bekräftar.
+    </p>
+    <input type="file" id="bak-file" accept="application/json,.json">
+    <div id="bak-import-status" style="font-size:13px;color:var(--mut2);margin-top:10px"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Stäng</button></div>
+  `);
+  $('#bak-file').onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    $('#bak-import-status').textContent='Läser fil…';
+    const text=await file.text();
+    const r=validateAndMigrateBackup(text);
+    if(!r.ok){
+      $('#bak-import-status').textContent = r.code==='wrongapp'
+        ? 'Den här filen kommer inte från Löpbelöning.'
+        : 'Filen gick inte att läsa. Välj en lopbeloning-backupfil (.json).';
+      e.target.value='';
+      return;
+    }
+    openBackupConfirmModal(r.migrated);
+  };
+}
+function openBackupConfirmModal(migrated){
+  openModal(`
+    <h3>Ersätt data?</h3>
+    <p style="color:var(--mut);font-size:14px;line-height:1.5;margin-bottom:18px">
+      Detta ersätter din nuvarande data (${S.runs.length} pass, ${S.achievements.length} mål). Går inte att ångra.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Avbryt</button>
+      <button class="btn" style="background:var(--red);color:#fff" id="bak-confirm">Ersätt data</button>
+    </div>
+  `);
+  $('#bak-confirm').onclick=async()=>{await applyBackupImport(migrated);closeModal();go('oversikt')};
+}
+async function applyBackupImport(migrated){
+  const d=migrated.data;
+  S={
+    settings:Object.assign({},DEFAULTS.settings,d.settings),
+    runs:Array.isArray(d.runs)?d.runs:[],
+    consumed:typeof d.consumed==='number'?d.consumed:0,
+    achievements:Array.isArray(d.achievements)?d.achievements:[]
+  };
+  await save();
+}
+
 // ---------- render ----------
 function beerGlass(fillPct){
   const p=Math.max(0,Math.min(1,fillPct));
@@ -468,7 +654,7 @@ function beerGlass(fillPct){
 }
 
 function renderOversikt(){
-  const D=derive();const u=S.settings.unit;
+  const D=derive();const u=esc(S.settings.unit);
   const inDebt=D.saldo<0;
   const drinkable=Math.max(0,Math.floor(D.capped));
   const fill=D.cap>0?D.capped/D.cap:Math.min(1,D.saldo/6);
@@ -525,7 +711,7 @@ function renderOversikt(){
 }
 
 function renderLogga(){
-  const u=S.settings.unit;const today=todayKey();
+  const u=esc(S.settings.unit);const today=todayKey();
   const runs=[...S.runs].sort((a,b)=>b.date.localeCompare(a.date));
   const rows=runs.length?runs.map(r=>{
     const beer=(+r.kcal||0)/S.settings.kcalPerBeer;
@@ -625,13 +811,79 @@ function renderMal(){
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editAch(b.dataset.edit));
 }
 
+function renderHistorik(){
+  if(!S.runs.length){
+    $('#v-historik').innerHTML=`<div class="sec-title">Historik</div>
+      <div class="empty">Inga pass loggade än.<br>Logga ditt första pass i fliken Logga för att se din historik här.</div>`;
+    return;
+  }
+  const D=derive();
+  const bars=recentWeeks(12);
+  const list=historyWeeks().slice(0,12);
+  const u=S.settings.unit;
+  const dec=historikMetric==='kcal'?0:1;
+  const unitLabel=historikMetric==='kcal'?'kcal':historikMetric==='ol'?u:'km'; // rå text, för .textContent
+  const unitLabelHtml=historikMetric==='ol'?esc(u):unitLabel; // escapad variant för innerHTML (SVG <title>)
+
+  const n=bars.length,gap=4,chartTop=6,baseline=110,chartH=baseline-chartTop;
+  const barW=(300-gap*(n-1))/n;
+  const maxVal=Math.max(1,...bars.map(w=>metricValue(w,historikMetric)));
+  const rects=bars.map((w,i)=>{
+    const val=metricValue(w,historikMetric);
+    const h=Math.max(3,chartH*(val/maxVal)),y=baseline-h,x=i*(barW+gap); // min-höjd så en 0-veckas stapel förblir synlig och tryckbar
+    const cls=w.status==='met'?'hk-met':w.status==='missed'?'hk-missed':'hk-pending';
+    return `<rect class="hk-bar ${cls}" data-i="${i}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2">
+      <title>Vecka ${isoWeekNum(w.wk)}, ${weekSpanLabel(w.wk)}: ${nf(val,dec)} ${unitLabelHtml}</title>
+    </rect>`;
+  }).join('');
+
+  const listRows=list.map(w=>`
+    <div class="led-row">
+      <span class="l">Vecka ${isoWeekNum(w.wk)} · ${weekSpanLabel(w.wk)}</span>
+      <span class="r" style="display:flex;align-items:center;gap:8px">
+        <span class="mono">${nf(w.km,1)} km</span>
+        <span class="mono" style="color:var(--mut)">${w.runs} pass</span>
+        <span class="mono" style="color:var(--amber)">${nf(w.beers,1)} ${esc(u)}</span>
+        <span class="dot-sm ${w.status==='met'?'on':w.status==='pending'?'pending':''}"></span>
+      </span>
+    </div>`).join('');
+
+  $('#v-historik').innerHTML=`
+    <div class="sec-title">Historik</div>
+    <div class="grid">
+      <div class="stat"><div class="k c-amber">Nuvarande streak</div><div class="v c-amber">${D.streak}<span class="u"> v</span></div></div>
+      <div class="stat"><div class="k c-green">Längsta streak</div><div class="v c-green">${longestStreakEver()}<span class="u"> v</span></div></div>
+      <div class="stat"><div class="k c-cyan">Antal pass</div><div class="v c-cyan">${D.totalRuns}</div></div>
+      <div class="stat"><div class="k c-purple">Total distans</div><div class="v c-purple">${nf(D.totalKm,1)}<span class="u"> km</span></div></div>
+    </div>
+    <div class="seg" id="hist-seg">
+      <button data-m="km" class="${historikMetric==='km'?'active':''}">Km</button>
+      <button data-m="kcal" class="${historikMetric==='kcal'?'active':''}">Kcal</button>
+      <button data-m="ol" class="${historikMetric==='ol'?'active':''}">${esc(u)}</button>
+    </div>
+    <svg id="hist-chart" viewBox="0 0 300 120" style="width:100%;height:120px;display:block;margin-top:14px;overflow:visible">${rects}</svg>
+    <div class="week-need" id="hist-readout">Tryck på en stapel för att se veckans värde.</div>
+    <div class="sec-title">Per vecka</div>
+    <div class="ledger">${listRows}</div>
+  `;
+
+  document.querySelectorAll('#hist-seg button').forEach(b=>b.onclick=()=>{historikMetric=b.dataset.m;renderHistorik()});
+  $('#hist-chart').onclick=e=>{
+    const rect=e.target.closest('.hk-bar');if(!rect)return;
+    document.querySelectorAll('.hk-bar').forEach(r=>r.classList.remove('hk-sel'));
+    rect.classList.add('hk-sel');
+    const w=bars[+rect.dataset.i];const val=metricValue(w,historikMetric);
+    $('#hist-readout').textContent=`Vecka ${isoWeekNum(w.wk)}, ${weekSpanLabel(w.wk)}: ${nf(val,dec)} ${unitLabel}`;
+  };
+}
+
 const FALLBACK_TZS=['Europe/Stockholm','Europe/Helsinki','Europe/Oslo','Europe/Copenhagen','Europe/London','Europe/Berlin','UTC'];
 function tzList(){
   try{const l=Intl.supportedValuesOf('timeZone');if(l&&l.length)return l}catch(e){}
   return Array.from(new Set([...FALLBACK_TZS,DEFAULT_TZ]));
 }
 function renderInstallningar(){
-  const s=S.settings;const u=s.unit;
+  const s=S.settings;const u=esc(s.unit);
   const tzOpts=tzList().map(tz=>`<option value="${tz}" ${s.timezone===tz?'selected':''}>${tz}</option>`).join('');
   $('#v-installningar').innerHTML=`
     <div class="sec-title">Regler</div>
@@ -644,6 +896,18 @@ function renderInstallningar(){
       <div class="setline"><div><div class="sl">Tidszon</div><div class="sd">Avgör vad som räknas som "idag" och veckogränser</div></div><select id="s-tz" style="width:170px">${tzOpts}</select></div>
     </div>
     <button class="btn btn-amber" id="s-save" style="width:100%;margin-top:16px">Spara regler</button>
+
+    <div class="sec-title">Backup</div>
+    <div class="tab-card" style="display:block;padding:18px">
+      <p style="color:var(--mut);font-size:12px;line-height:1.5;margin-bottom:14px">
+        Exportera all din data till en fil, eller återställ från en tidigare backup.
+      </p>
+      <div class="modal-actions" style="margin-top:0">
+        <button class="btn btn-ghost" id="bak-export-btn">Exportera data</button>
+        <button class="btn btn-ghost" id="bak-import-btn">Importera data</button>
+      </div>
+    </div>
+
     <button class="danger" id="s-reset">Nollställ all data</button>
   `;
   $('#s-save').onclick=async()=>{
@@ -657,6 +921,8 @@ function renderInstallningar(){
     };
     await save();flash($('#s-save'),'Sparat ✓');renderInstallningar();
   };
+  $('#bak-export-btn').onclick=openBackupExportModal;
+  $('#bak-import-btn').onclick=openBackupImportModal;
   $('#s-reset').onclick=()=>{
     openModal(`<h3>Nollställa?</h3><p style="color:var(--mut);font-size:14px;line-height:1.5;margin-bottom:18px">Detta raderar alla pass, mål och inställningar. Går inte att ångra.</p>
       <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Avbryt</button><button class="btn" style="background:var(--red);color:#fff" id="do-reset">Radera allt</button></div>`);
@@ -710,7 +976,7 @@ $('#lb-scrim')?.addEventListener('click',e=>{if(e.target.id==='lb-scrim')closeMo
 function flash(btn,txt){const o=btn.textContent;btn.textContent=txt;setTimeout(()=>btn.textContent=o,1200)}
 async function save(){await store.set(S)}
 
-const RENDER={oversikt:renderOversikt,logga:renderLogga,mal:renderMal,installningar:renderInstallningar};
+const RENDER={oversikt:renderOversikt,logga:renderLogga,mal:renderMal,historik:renderHistorik,installningar:renderInstallningar};
 function go(tab){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   $('#v-'+tab).classList.add('active');
