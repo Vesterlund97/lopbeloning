@@ -62,14 +62,25 @@ Hundralappen (100 km total).
 
 ## Att göra härnäst (backlog)
 
-1. **Gör om till installningsbar PWA**: `manifest.json` + service worker
-   (cache-first för offline). Ikoner. `<link rel="manifest">` i index.html.
-2. **Deploya till GitHub Pages** som `vesterlund97.github.io/lopbeloning/`
-   (repo → Settings → Pages → main branch).
-3. **Samsung Health-import**: låt användaren slippa knappa in km/kcal manuellt.
-   Undersök export-format (troligen CSV/JSON via Samsung Health-export).
-4. Ev. redigera loggade pass (inte bara ta bort), och en enkel historik-vy /
-   diagram över veckor.
+### Klart
+1. ✅ **Installningsbar PWA**: `manifest.json` + service worker (cache-first),
+   ikoner, `<link rel="manifest">` i index.html.
+2. ✅ **Deployad på GitHub Pages**: `vesterlund97.github.io/lopbeloning/`.
+3. ✅ **Import av löppass**: Samsung Health-export (CSV, `start_time`/`distance`/
+   `calorie`) samt generisk CSV/JSON från andra löpappar, med granskningsvy
+   innan import. Helt automatisk live-synk är inte möjlig utan en native
+   companion-app/partner-API, så detta är den pragmatiska lösningen.
+4. ✅ **Redigera loggade pass** (inte bara ta bort) — ✎-knapp per pass i Logga.
+5. ✅ **Historik-flik**: veckoaggregering, SVG-stapeldiagram (km/kcal/öl-växlare,
+   tryck/hovra för värde), nuvarande + längsta streak, vecko-för-vecko-lista.
+6. ✅ **Backup export/import**: versionsmärkt JSON, nedladdning/dela/kopiera,
+   validerad import med bekräftelsemodal.
+
+### Kvar
+7. **TWA-paketering för Google Play** (Bubblewrap, Android SDK, Play
+   Console-konto, egen signeringsnyckel) — se detaljerad spec längre ner i
+   filen. Egen fas, kräver att tung verktygskedja installeras lokalt och att
+   du sätter upp externa konton, så görs separat när det är läge.
 
 ## Konventioner
 
