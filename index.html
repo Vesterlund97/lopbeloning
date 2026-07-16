@@ -329,8 +329,9 @@ function derive(){
   const saldo=earned-S.consumed-penalty;
   const cap=S.settings.bankCap;
   const capped=cap>0?Math.min(saldo,cap):saldo;
+  const surplus=cap>0?Math.max(0,saldo-cap):0;
   const thisWeekRuns=runsInWeek(nowKey);
-  return{totalKcal,totalKm,totalRuns,missed,streak,earned,penalty,saldo,capped,cap,thisWeekRuns,need,nowKey,weeks};
+  return{totalKcal,totalKm,totalRuns,missed,streak,earned,penalty,saldo,capped,surplus,cap,thisWeekRuns,need,nowKey,weeks};
 }
 
 // ---------- achievement-progress ----------
@@ -659,7 +660,7 @@ function renderOversikt(){
   const drinkable=Math.max(0,Math.floor(D.capped));
   const fill=D.cap>0?D.capped/D.cap:Math.min(1,D.saldo/6);
   const dots=Array.from({length:D.need},(_,i)=>`<div class="dot ${i<D.thisWeekRuns?'on':''}"></div>`).join('');
-  const capNote=D.cap>0&&D.saldo>D.cap?`<b>Cappat till ${nf(D.cap,1)}</b> — spring inte för att spara, spring för att springa.`:'';
+  const capNote=D.cap>0&&D.saldo>D.cap?`Du har sprungit in <b>${nf(D.surplus,1)} ${u}</b> utöver cap (${nf(D.cap,1)}) — spring inte för att spara, spring för att springa.`:'';
   let note;
   if(inDebt) note=`Du ligger <b>${nf(Math.abs(D.saldo),1)} ${u}</b> back. Spring in skulden innan nästa helgöl är betald.`;
   else if(drinkable>0) note=`Du har råd med <b>${drinkable} ${u}</b> just nu. ${capNote}`;
@@ -670,7 +671,7 @@ function renderOversikt(){
       <div class="glass-wrap">${beerGlass(fill)}<div class="glass-label">notan</div></div>
       <div class="tab-main">
         <div class="tab-lead">Öl-saldo</div>
-        <div class="tab-num ${inDebt?'debt':''}">${nf(D.saldo,1)}<span class="tab-unit"> ${u}</span></div>
+        <div class="tab-num ${inDebt?'debt':''}">${nf(D.capped,1)}<span class="tab-unit"> ${u}</span></div>
         <div class="tab-note">${note}</div>
       </div>
     </div>
@@ -703,7 +704,8 @@ function renderOversikt(){
       <div class="led-row"><span class="l">Intjänat (${nf(D.totalKcal,0)} kcal ÷ ${S.settings.kcalPerBeer})</span><span class="r pos">+${nf(D.earned,1)}</span></div>
       <div class="led-row"><span class="l">Druckna ${u}</span><span class="r ${S.consumed>0?'neg':''}">${S.consumed>0?'−':''}${nf(S.consumed,1)}</span></div>
       <div class="led-row"><span class="l">Missade veckor (${D.missed} × ${nf(S.settings.penaltyBeer,0)})</span><span class="r ${D.penalty>0?'neg':''}">${D.penalty>0?'−':''}${nf(D.penalty,1)}</span></div>
-      <div class="led-row tot"><span class="l">Saldo</span><span class="r ${inDebt?'neg':'pos'}">${nf(D.saldo,1)} ${u}</span></div>
+      ${D.surplus>0?`<div class="led-row"><span class="l">Överskott utöver cap (sparas ej)</span><span class="r" style="color:var(--amber)">−${nf(D.surplus,1)}</span></div>`:''}
+      <div class="led-row tot"><span class="l">Saldo</span><span class="r ${inDebt?'neg':'pos'}">${nf(D.capped,1)} ${u}</span></div>
     </div>
   `;
   $('#drink').onclick=async()=>{S.consumed+=1;await save();renderOversikt()};
