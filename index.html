@@ -712,7 +712,7 @@ async function applyBackupImport(migrated){
 // ---------- render ----------
 function beerGlassSvg(p){
   const top=88-(70*p); // liquid top y within body
-  const foamY=top-6;
+  const foamY=Math.max(top-6,23); // klämd så skummet (ry=7) aldrig hamnar ovanför glasets rim (y=16) och blir avklippt
   return `<svg class="glass" viewBox="0 0 70 104">
     <defs><linearGradient id="beer" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffc861"/><stop offset="1" stop-color="#e08a12"/></linearGradient></defs>
@@ -764,7 +764,7 @@ function renderOversikt(){
   const D=derive();const u=esc(S.settings.unit);
   const inDebt=D.saldo<0;
   const drinkable=Math.max(0,Math.floor(D.capped));
-  const fill=D.cap>0?D.capped/D.cap:Math.min(1,D.saldo/6);
+  const fill=Math.min(1,D.capped); // glaset ska se fullt ut redan när man har råd med minst 1, inte skalat mot cap
   const saldoLabel=esc(S.settings.unit.charAt(0).toUpperCase()+S.settings.unit.slice(1))+'-saldo';
   const dots=Array.from({length:D.need},(_,i)=>`<div class="dot ${i<D.thisWeekRuns?'on':''}"></div>`).join('');
   const capNote=D.cap>0&&D.saldo>D.cap?`Du har sprungit in <b>${nf(D.surplus,1)} ${u}</b> utöver cap (${nf(D.cap,1)}) — spring inte för att spara, spring för att springa.`:'';
