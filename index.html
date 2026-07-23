@@ -380,6 +380,38 @@ function weekList(){ // alla veckonycklar från första passet till denna vecka
 }
 function runsInWeek(wk){return S.runs.filter(r=>mondayKey(r.date)===wk).length}
 
+// Simulerar öl-ekonomin i kronologisk ordning (intjäning, drickande, straff) så att
+// "överskott utöver cap" blir en ren, växande "titt-vad-du-sprungit-in"-summa som
+// ALDRIG dräneras av att man dricker — bara det som faktiskt fick plats i den
+// cap-begränsade bucketen när det tjänades in är spenderbart. Drickande/straff drar
+// alltid direkt från bucketen (kan gå i skuld där), aldrig från överskottet. Ordningen
+// spelar roll (därför en tidslinje, inte bara en summa) — annars kan man inte skilja
+// "intjänat innan cap nåddes" från "intjänat efter", vilket är precis vad som avgör
+// om det landar i bucketen eller överskottet.
+function simulateBucket(weeks,nowKey,need){
+  const cap=S.settings.bankCap;
+  const events=[];
+  S.runs.forEach(r=>events.push({date:r.date,amt:(+r.kcal||0)/S.settings.kcalPerBeer}));
+  S.consumed.forEach(c=>events.push({date:c.date,amt:-1}));
+  weeks.forEach(wk=>{
+    if(wk!==nowKey&&runsInWeek(wk)<need){
+      const sunday=new Date(wk+'T00:00:00');sunday.setDate(sunday.getDate()+6);
+      events.push({date:dateKey(sunday),amt:-S.settings.penaltyBeer});
+    }
+  });
+  events.sort((a,b)=>a.date.localeCompare(b.date));
+  let bucket=0,surplus=0;
+  for(const e of events){
+    if(e.amt>0&&cap>0){
+      const room=Math.max(0,cap-bucket);
+      const toBucket=Math.min(e.amt,room);
+      bucket+=toBucket;surplus+=(e.amt-toBucket);
+    }else{
+      bucket+=e.amt;
+    }
+  }
+  return{bucket,surplus};
+}
 function derive(){
   const need=S.settings.needPerWeek;
   const totalKcal=S.runs.reduce((a,r)=>a+(+r.kcal||0),0);
@@ -397,12 +429,11 @@ function derive(){
   }
   const earned=totalKcal/S.settings.kcalPerBeer;
   const penalty=missed*S.settings.penaltyBeer;
-  const saldo=earned-S.consumed.length-penalty;
   const cap=S.settings.bankCap;
-  const capped=cap>0?Math.min(saldo,cap):saldo;
-  const surplus=cap>0?Math.max(0,saldo-cap):0;
+  const{bucket,surplus}=simulateBucket(weeks,nowKey,need);
+  const capped=bucket; // "capped" är namnet all rendering redan förväntar sig
   const thisWeekRuns=runsInWeek(nowKey);
-  return{totalKcal,totalKm,totalRuns,missed,streak,earned,penalty,saldo,capped,surplus,cap,thisWeekRuns,need,nowKey,weeks};
+  return{totalKcal,totalKm,totalRuns,missed,streak,earned,penalty,capped,surplus,cap,thisWeekRuns,need,nowKey,weeks};
 }
 
 // ---------- achievement-progress ----------
@@ -779,14 +810,14 @@ function drinkGlass(fillPct,profile){
 
 function renderOversikt(){
   const D=derive();const u=esc(S.settings.unit);
-  const inDebt=D.saldo<0;
+  const inDebt=D.capped<0;
   const drinkable=Math.max(0,Math.floor(D.capped));
   const fill=Math.min(1,D.capped); // glaset ska se fullt ut redan när man har råd med minst 1, inte skalat mot cap
   const saldoLabel=esc(S.settings.unit.charAt(0).toUpperCase()+S.settings.unit.slice(1))+'-saldo';
   const dots=Array.from({length:D.need},(_,i)=>`<div class="dot ${i<D.thisWeekRuns?'on':''}"></div>`).join('');
-  const capNote=D.cap>0&&D.saldo>D.cap?`Du har sprungit in <b>${nf(D.surplus,1)} ${u}</b> utöver cap (${nf(D.cap,1)}) — spring inte för att spara, spring för att springa.`:'';
+  const capNote=D.cap>0&&D.surplus>0?`Du har sprungit in <b>${nf(D.surplus,1)} ${u}</b> utöver cap (${nf(D.cap,1)}) — spring inte för att spara, spring för att springa.`:'';
   let note;
-  if(inDebt) note=`Du ligger <b>${nf(Math.abs(D.saldo),1)} ${u}</b> back. Spring in skulden innan nästa helgöl är betald.`;
+  if(inDebt) note=`Du ligger <b>${nf(Math.abs(D.capped),1)} ${u}</b> back. Spring in skulden innan nästa helgöl är betald.`;
   else if(drinkable>0) note=`Du har råd med <b>${drinkable} ${u}</b> just nu. ${capNote}`;
   else note=`Nästan där — spring en runda till så är första ${u}en betald.`;
 
@@ -801,7 +832,7 @@ function renderOversikt(){
     </div>
 
     <div class="drink-row">
-      <button class="btn btn-amber" id="drink" ${drinkable<=0?'disabled':''}>Drick 1 ${u} –1</button>
+      <button class="btn btn-amber" id="drink" ${drinkable<=0?'disabled':''}>Drick 1 ${u}</button>
       <button class="btn btn-ghost" id="quicklog">+ Logga pass</button>
     </div>
 
