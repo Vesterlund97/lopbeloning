@@ -276,10 +276,10 @@ const DEFAULTS={
   runs:[],
   consumed:[],
   achievements:[
-    {id:'a1',icon:'🍺',name:'Specialöl',cond:'run_km',threshold:5,reward:'En IPA istället för vardagsölen',repeatable:true},
-    {id:'a2',icon:'🥃',name:'Whiskyglas',cond:'run_km',threshold:10,reward:'1 glas whisky',repeatable:false},
-    {id:'a3',icon:'🔥',name:'Momentum',cond:'streak',threshold:3,reward:'Valfri premie du bestämmer',repeatable:false},
-    {id:'a4',icon:'🏆',name:'Hundralappen',cond:'total_km',threshold:100,reward:'En riktigt fin flaska',repeatable:false}
+    {id:'a1',icon:'🍺',name:'Specialöl',cond:'run_km',threshold:5,reward:'En IPA istället för vardagsölen',repeatable:true,claimedCount:0},
+    {id:'a2',icon:'🥃',name:'Whiskyglas',cond:'run_km',threshold:10,reward:'1 glas whisky',repeatable:false,claimedCount:0},
+    {id:'a3',icon:'🔥',name:'Momentum',cond:'streak',threshold:3,reward:'Valfri premie du bestämmer',repeatable:false,claimedCount:0},
+    {id:'a4',icon:'🏆',name:'Hundralappen',cond:'total_km',threshold:100,reward:'En riktigt fin flaska',repeatable:false,claimedCount:0}
   ]
 };
 
@@ -347,6 +347,10 @@ function ensureDrinkProfiles(){
   syncActiveDrink();
 }
 function consumedInWeek(wk){return S.consumed.filter(c=>mondayKey(c.date)===wk).length}
+// Äldre sparad data saknar claimedCount på mål — default till 0 (inget hämtat än).
+function ensureAchievementClaims(){
+  S.achievements.forEach(a=>{if(typeof a.claimedCount!=='number')a.claimedCount=0});
+}
 
 function mondayKey(dateStr){
   const d=new Date(dateStr+'T00:00:00');
@@ -411,7 +415,13 @@ function achState(a,D){
   else if(a.cond==='total_runs'){cur=D.totalRuns}
   else if(a.cond==='total_kcal'){cur=D.totalKcal}
   const done=cur>=t;
-  return{cur,done,times,pct:Math.min(1,t?cur/t:0)};
+  const claimedCount=a.claimedCount||0;
+  // Repeterbara mål: "unclaimed" är hur många intjänade omgångar som väntar på
+  // att hämtas — när allt är hämtat återgår kortet till "pågående" tills nästa
+  // kvalificerande pass. Icke-repeterbara: bara 0 eller 1, rent kosmetiskt
+  // (målet kan ändå inte låsas upp igen).
+  const unclaimed=a.repeatable?Math.max(0,times-claimedCount):(done&&claimedCount<1?1:0);
+  return{cur,done,times,claimedCount,unclaimed,pct:Math.min(1,t?cur/t:0)};
 }
 
 // ---------- historik: veckoaggregering ----------
@@ -706,6 +716,7 @@ async function applyBackupImport(migrated){
     achievements:Array.isArray(d.achievements)?d.achievements:[]
   };
   ensureDrinkProfiles();
+  ensureAchievementClaims();
   await save();
 }
 
@@ -895,18 +906,25 @@ function renderMal(){
   const D=derive();const u=S.settings.unit;
   const cards=S.achievements.map(a=>{
     const st=achState(a,D);const c=CONDS[a.cond];
-    return `<div class="ach ${st.done?'done':''}">
-      ${st.done?'<span class="badge-done">UPPLÅST</span>':''}
+    // Repeterbara mål: kortet räknas som "klart" bara medan det finns ohämtade
+    // omgångar — när allt är hämtat återgår det till pågående tills nästa
+    // kvalificerande pass. Icke-repeterbara förblir klara permanent, men
+    // badgen växlar UPPLÅST → HÄMTAD (rent kosmetiskt, kan ändå inte låsas upp igen).
+    const cardDone=a.repeatable?st.unclaimed>0:st.done;
+    const badge=!cardDone?'':(st.unclaimed>0?'<span class="badge-done">UPPLÅST</span>':'<span class="badge-done" style="color:var(--mut)">HÄMTAD</span>');
+    return `<div class="ach ${cardDone?'done':''}">
+      ${badge}
       <div class="ach-top">
         <span class="ach-ico">${a.icon||'🎯'}</span>
         <span class="ach-name">${esc(a.name)}</span>
-        ${a.repeatable&&st.times>0?`<span class="ach-times">×${st.times}</span>`:''}
+        ${a.repeatable&&st.unclaimed>0?`<span class="ach-times">×${st.unclaimed}</span>`:''}
         <button class="ach-edit" data-edit="${a.id}">✎</button>
       </div>
       <div class="ach-reward">🎁 ${esc(a.reward)}</div>
       <div class="ach-cond">${c.label} ≥ ${nf(a.threshold,c.dec)} ${c.unit}${a.repeatable?' · repeterbart':''}</div>
       <div class="bar"><i style="width:${(st.pct*100).toFixed(0)}%"></i></div>
       <div class="ach-prog"><span>${nf(st.cur,c.dec)} / ${nf(a.threshold,c.dec)} ${c.unit}</span><span>${(st.pct*100).toFixed(0)}%</span></div>
+      ${st.unclaimed>0?`<button class="btn btn-amber ach-claim" data-claim="${a.id}" style="width:100%;margin-top:10px">Hämta belöning${a.repeatable?` (×${st.unclaimed} kvar)`:''}</button>`:''}
     </div>`}).join('');
   $('#v-mal').innerHTML=`
     <div class="sec-title">Dina mål & belöningar</div>
@@ -918,6 +936,11 @@ function renderMal(){
   `;
   $('#add-ach').onclick=()=>editAch(null);
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editAch(b.dataset.edit));
+  document.querySelectorAll('[data-claim]').forEach(b=>b.onclick=async()=>{
+    const a=S.achievements.find(x=>x.id===b.dataset.claim);if(!a)return;
+    a.claimedCount=(a.claimedCount||0)+1;
+    await save();renderMal();
+  });
 }
 
 function renderHistorik(){
@@ -1078,7 +1101,7 @@ function renderInstallningar(){
   $('#s-reset').onclick=()=>{
     openModal(`<h3>Nollställa?</h3><p style="color:var(--mut);font-size:14px;line-height:1.5;margin-bottom:18px">Detta raderar alla pass, mål och inställningar. Går inte att ångra.</p>
       <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Avbryt</button><button class="btn" style="background:var(--red);color:#fff" id="do-reset">Radera allt</button></div>`);
-    $('#do-reset').onclick=async()=>{S=JSON.parse(JSON.stringify(DEFAULTS));ensureDrinkProfiles();await save();closeModal();go('oversikt')};
+    $('#do-reset').onclick=async()=>{S=JSON.parse(JSON.stringify(DEFAULTS));ensureDrinkProfiles();ensureAchievementClaims();await save();closeModal();go('oversikt')};
   };
 }
 
@@ -1180,7 +1203,8 @@ function editAch(id){
   $('#a-save').onclick=async()=>{
     const name=$('#a-name').value.trim()||'Mål';
     const obj={id:id||uid(),icon:chosen,name,reward:$('#a-reward').value.trim()||'Belöning',
-      cond:$('#a-cond').value,threshold:parseFloat(($('#a-th').value||'0').replace(',','.'))||0,repeatable:$('#a-rep').checked};
+      cond:$('#a-cond').value,threshold:parseFloat(($('#a-th').value||'0').replace(',','.'))||0,repeatable:$('#a-rep').checked,
+      claimedCount:id?(a.claimedCount||0):0};
     if(id)S.achievements=S.achievements.map(x=>x.id===id?obj:x);else S.achievements.push(obj);
     await save();closeModal();renderMal();
   };
@@ -1224,6 +1248,7 @@ if('serviceWorker' in navigator){
   S.settings=Object.assign({},DEFAULTS.settings,S.settings);
   S.consumed=normalizeConsumed(S.consumed);
   ensureDrinkProfiles();
+  ensureAchievementClaims();
   renderOversikt();
 })();
 </script>
