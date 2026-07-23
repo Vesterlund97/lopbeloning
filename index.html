@@ -421,7 +421,13 @@ function achState(a,D){
   // kvalificerande pass. Icke-repeterbara: bara 0 eller 1, rent kosmetiskt
   // (målet kan ändå inte låsas upp igen).
   const unclaimed=a.repeatable?Math.max(0,times-claimedCount):(done&&claimedCount<1?1:0);
-  return{cur,done,times,claimedCount,unclaimed,pct:Math.min(1,t?cur/t:0)};
+  // För repeterbara distans-/kaloriemål: cur är "bästa passet någonsin" och
+  // nollställs annars aldrig. När allt intjänat redan är hämtat ska förloppet
+  // visa 0/tröskel igen (väntar på ett NYTT kvalificerande pass) istället för
+  // att fortsätta stå kvar på 100 % från ett pass som redan är inhämtat.
+  const resetProgress=a.repeatable&&(a.cond==='run_km'||a.cond==='run_kcal')&&unclaimed===0;
+  const dCur=resetProgress?0:cur,dDone=resetProgress?false:done;
+  return{cur:dCur,done:dDone,times,claimedCount,unclaimed,pct:Math.min(1,t?dCur/t:0)};
 }
 
 // ---------- historik: veckoaggregering ----------
