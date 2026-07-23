@@ -226,6 +226,8 @@
   <section class="view" id="v-historik"></section>
   <!-- INSTÄLLNINGAR -->
   <section class="view" id="v-installningar"></section>
+  <!-- OM -->
+  <section class="view" id="v-om"></section>
 
   <nav>
     <button data-tab="oversikt" class="active">
@@ -708,8 +710,7 @@ async function applyBackupImport(migrated){
 }
 
 // ---------- render ----------
-function beerGlass(fillPct){
-  const p=Math.max(0,Math.min(1,fillPct));
+function beerGlassSvg(p){
   const top=88-(70*p); // liquid top y within body
   const foamY=top-6;
   return `<svg class="glass" viewBox="0 0 70 104">
@@ -724,12 +725,47 @@ function beerGlass(fillPct){
     <path d="M58 30 h7 a7 7 0 0 1 7 7 v22 a7 7 0 0 1 -7 7 h-6" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
   </svg>`;
 }
+function wineGlassSvg(p){
+  const bowlTop=12,bowlBottom=48; // liquid bounds within the bowl only, not stem/base
+  const top=bowlBottom-(bowlBottom-bowlTop)*p;
+  return `<svg class="glass" viewBox="0 0 70 104">
+    <defs><linearGradient id="wine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9506e"/><stop offset="1" stop-color="#7a1f36"/></linearGradient></defs>
+    <clipPath id="wine-cup"><path d="M15 12 C15 12 11 38 19 46 C24 51 46 51 51 46 C59 38 55 12 55 12 Z"/></clipPath>
+    <g clip-path="url(#wine-cup)"><rect x="10" y="${top}" width="50" height="60" fill="url(#wine)"/></g>
+    <path d="M15 12 C15 12 11 38 19 46 C24 51 46 51 51 46 C59 38 55 12 55 12" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
+    <line x1="35" y1="49" x2="35" y2="86" stroke="#4a3d28" stroke-width="2.5"/>
+    <ellipse cx="35" cy="89" rx="15" ry="4" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
+  </svg>`;
+}
+function rocksGlassSvg(p){
+  const cupTop=42,cupBottom=97;
+  const top=cupBottom-(cupBottom-cupTop)*p;
+  return `<svg class="glass" viewBox="0 0 70 104">
+    <defs><linearGradient id="rocks" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9a441"/><stop offset="1" stop-color="#8a5a1e"/></linearGradient></defs>
+    <clipPath id="rocks-cup"><path d="M16 42 h38 l-2 50 a5 5 0 0 1 -5 5 h-26 a5 5 0 0 1 -5 -5 z"/></clipPath>
+    <g clip-path="url(#rocks-cup)"><rect x="12" y="${top}" width="46" height="60" fill="url(#rocks)"/></g>
+    <path d="M16 42 h38 l-2 50 a5 5 0 0 1 -5 5 h-26 a5 5 0 0 1 -5 -5 z" fill="none" stroke="#4a3d28" stroke-width="2.5"/>
+  </svg>`;
+}
+// Ikonen på den aktiva dryckesprofilen styr vilket glas som visas — 🍷 blir
+// ett vinglas, 🥃 en lowball-tumbler, allt annat (🍺 + egna ikoner) förblir
+// den vanliga ölglas-siluetten som standard.
+function drinkGlass(fillPct,profile){
+  const p=Math.max(0,Math.min(1,fillPct));
+  const icon=(profile&&profile.icon)||'🍺';
+  if(icon==='🍷')return wineGlassSvg(p);
+  if(icon==='🥃')return rocksGlassSvg(p);
+  return beerGlassSvg(p);
+}
 
 function renderOversikt(){
   const D=derive();const u=esc(S.settings.unit);
   const inDebt=D.saldo<0;
   const drinkable=Math.max(0,Math.floor(D.capped));
   const fill=D.cap>0?D.capped/D.cap:Math.min(1,D.saldo/6);
+  const saldoLabel=esc(S.settings.unit.charAt(0).toUpperCase()+S.settings.unit.slice(1))+'-saldo';
   const dots=Array.from({length:D.need},(_,i)=>`<div class="dot ${i<D.thisWeekRuns?'on':''}"></div>`).join('');
   const capNote=D.cap>0&&D.saldo>D.cap?`Du har sprungit in <b>${nf(D.surplus,1)} ${u}</b> utöver cap (${nf(D.cap,1)}) — spring inte för att spara, spring för att springa.`:'';
   let note;
@@ -739,9 +775,9 @@ function renderOversikt(){
 
   $('#v-oversikt').innerHTML=`
     <div class="tab-card">
-      <div class="glass-wrap">${beerGlass(fill)}<div class="glass-label">notan</div></div>
+      <div class="glass-wrap">${drinkGlass(fill,activeDrink())}<div class="glass-label">notan</div></div>
       <div class="tab-main">
-        <div class="tab-lead">Öl-saldo</div>
+        <div class="tab-lead">${saldoLabel}</div>
         <div class="tab-num ${inDebt?'debt':''}">${nf(D.capped,1)}<span class="tab-unit"> ${u}</span></div>
         <div class="tab-note">${note}</div>
       </div>
@@ -1019,7 +1055,9 @@ function renderInstallningar(){
     </div>
 
     <button class="danger" id="s-reset">Nollställ all data</button>
+    <button class="btn btn-ghost" id="go-om" style="width:100%;margin-top:10px">Om Galopp</button>
   `;
+  $('#go-om').onclick=()=>go('om');
   document.querySelectorAll('.dprofile').forEach(el=>el.onclick=async e=>{
     if(e.target.closest('[data-edit-drink]'))return;
     S.settings.activeDrinkId=el.dataset.drink;
@@ -1083,6 +1121,33 @@ function editDrinkProfile(id){
   };
 }
 
+// ---------- om ----------
+function renderOm(){
+  $('#v-om').innerHTML=`
+    <div class="sec-title">Om Galopp</div>
+    <div class="tab-card" style="display:block;padding:20px">
+      <div class="brand" style="margin-bottom:14px">GAL<b>OPP</b></div>
+      <p style="margin-bottom:12px">
+        En galopp är krogslang för en liten öl — serveras traditionellt i ett vinglas,
+        ungefär 12,5 centiliter. Rätt storlek för den som är på språng och inte har tid
+        med en hel stor.
+      </p>
+      <p style="margin-bottom:12px">
+        Ordet kommer från franskans <i>galopin</i>, som ursprungligen syftade på
+        springpojkar. Förr i tiden fick springpojkarna i Frankrike ofta en liten öl
+        som tack när de sprang ärenden mellan olika ställen — och därifrån kommer
+        kopplingen mellan att galoppera runt och att bli belönad med en öl.
+      </p>
+      <p style="margin-bottom:0">
+        Det är exakt vad den här appen handlar om: du springer, du tjänar en öl.
+        Namnet kändes för passande för att inte använda.
+      </p>
+    </div>
+    <button class="btn btn-ghost" id="om-back" style="width:100%;margin-top:16px">Tillbaka till Inställningar</button>
+  `;
+  $('#om-back').onclick=()=>go('installningar');
+}
+
 // ---------- achievement editor ----------
 function editAch(id){
   const a=id?S.achievements.find(x=>x.id===id):{icon:'🎯',name:'',cond:'run_km',threshold:5,reward:'',repeatable:false};
@@ -1138,7 +1203,7 @@ $('#lb-scrim')?.addEventListener('click',e=>{if(e.target.id==='lb-scrim')closeMo
 function flash(btn,txt){const o=btn.textContent;btn.textContent=txt;setTimeout(()=>btn.textContent=o,1200)}
 async function save(){await store.set(S)}
 
-const RENDER={oversikt:renderOversikt,logga:renderLogga,mal:renderMal,historik:renderHistorik,installningar:renderInstallningar};
+const RENDER={oversikt:renderOversikt,logga:renderLogga,mal:renderMal,historik:renderHistorik,installningar:renderInstallningar,om:renderOm};
 function go(tab){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   $('#v-'+tab).classList.add('active');
