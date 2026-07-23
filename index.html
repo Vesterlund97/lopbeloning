@@ -60,7 +60,7 @@
   .glass-label{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:1.5px;margin-top:6px}
   .tab-main{flex:1;min-width:0}
   .tab-lead{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mut)}
-  .tab-num{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:60px;line-height:.9;margin:2px 0 0;color:var(--amber)}
+  .tab-num{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:60px;line-height:.9;margin:2px 0 0;color:var(--amber);overflow-wrap:anywhere;max-width:100%}
   .tab-num.debt{color:var(--red)}
   .tab-unit{font-size:15px;color:var(--mut);font-weight:600;font-family:'Inter'}
   .tab-note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.4}
@@ -88,7 +88,8 @@
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
   .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
-  .stat .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;margin-top:3px}
+  .stat .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;margin-top:3px;overflow-wrap:anywhere;max-width:100%}
+  .stat{min-width:0}
   .stat .u{font-size:12px;color:var(--mut);font-weight:600;font-family:'Inter'}
   .c-cyan{color:var(--cyan)} .c-green{color:var(--green)} .c-purple{color:var(--purple)} .c-amber{color:var(--amber)} .c-red{color:var(--red)}
 
@@ -99,7 +100,7 @@
   .led-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line);font-size:13px}
   .led-row:last-child{border-bottom:none}
   .led-row .l{color:var(--mut)}
-  .led-row .r{font-weight:600}
+  .led-row .r{font-weight:600;overflow-wrap:anywhere;text-align:right;max-width:60%}
   .led-row.tot .l{color:var(--foam);font-weight:600}
   .led-row.tot .r{font-size:16px}
   .pos{color:var(--green)} .neg{color:var(--red)}
@@ -113,6 +114,13 @@
   .hk-missed{fill:var(--red)}
   .hk-pending{fill:var(--amber);opacity:.5}
   .hk-sel{stroke:var(--foam);stroke-width:1.5}
+  .hk-grid{stroke:var(--line);stroke-width:.5;stroke-dasharray:2,2}
+  .hk-gridlabel{font-size:7px;fill:var(--mut2);font-family:'Spline Sans Mono',monospace}
+  .hk-vallabel{font-size:6.5px;fill:var(--mut);font-family:'Spline Sans Mono',monospace;text-anchor:middle}
+  .hk-legend{display:flex;gap:16px;font-size:12px;color:var(--mut);margin-top:10px}
+  .hk-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+  .es-earn{fill:var(--green)}
+  .es-spend{fill:var(--red)}
   .dot-sm{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--red)}
   .dot-sm.on{background:var(--green)}
   .dot-sm.pending{background:var(--amber);opacity:.6}
@@ -120,6 +128,7 @@
   /* forms */
   .field{margin-bottom:15px}
   .field label{display:block;font-size:12px;color:var(--mut);font-weight:600;margin-bottom:6px;letter-spacing:.3px}
+  .charcount{color:var(--mut2);font-weight:600;letter-spacing:0;text-transform:none}
   .field input,.field select{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
     padding:13px 14px;color:var(--txt);font-size:16px}
   .field input:focus,.field select:focus{outline:none;border-color:var(--amber)}
@@ -188,6 +197,15 @@
   .setline .sd{font-size:12px;color:var(--mut2);margin-top:2px}
   .setline input{width:88px;text-align:right;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--txt);font-size:15px}
   .setline input:focus{outline:none;border-color:var(--amber)}
+  .dprofile{display:flex;align-items:center;gap:10px;padding:12px 6px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:10px}
+  .dprofile:last-child{border-bottom:none}
+  .dprofile.active{background:rgba(245,166,35,.08)}
+  .dprofile .dp-check{color:var(--amber);font-size:15px;flex:0 0 16px;text-align:center;font-weight:700}
+  .dprofile .dp-ico{font-size:20px;flex:0 0 auto}
+  .dprofile .dp-label{font-weight:600;flex:1;min-width:0;overflow-wrap:anywhere}
+  .dprofile .dp-kcal{font-size:12px;color:var(--mut);flex:0 0 auto}
+  .dprofile .edit{color:var(--mut2);font-size:15px;padding:2px 6px}
+  .dprofile .edit:hover{color:var(--foam)}
 </style>
 </head>
 <body>
@@ -238,11 +256,23 @@ const store={
   }
 };
 
+// Avstängd 2026-07-23: inget akut behov just nu, men kod/parselogik lämnas
+// orörd nedan (bara UI-ingången gömd) eftersom det är billigare att dölja
+// än att riva ut och bygga om senare om behovet återkommer.
+const ENABLE_SAMSUNG_HEALTH=false;
 const DEFAULT_TZ=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
+const DEFAULT_DRINK_PROFILES=[
+  {id:'ol',label:'öl',icon:'🍺',kcalPerUnit:250},
+  {id:'vin',label:'vin',icon:'🍷',kcalPerUnit:150},
+  {id:'grogg',label:'grogg',icon:'🥃',kcalPerUnit:100}
+];
 const DEFAULTS={
+  // drinkProfiles/activeDrinkId medvetet INTE här — ensureDrinkProfiles() bygger
+  // dem alltid färskt (både för nya installationer och vid migrering av gammal
+  // data) så att ingen del av S någonsin delar array-referens med denna konstant.
   settings:{kcalPerBeer:250,needPerWeek:1,penaltyBeer:2,bankCap:3,unit:'öl',timezone:DEFAULT_TZ},
   runs:[],
-  consumed:0,
+  consumed:[],
   achievements:[
     {id:'a1',icon:'🍺',name:'Specialöl',cond:'run_km',threshold:5,reward:'En IPA istället för vardagsölen',repeatable:true},
     {id:'a2',icon:'🥃',name:'Whiskyglas',cond:'run_km',threshold:10,reward:'1 glas whisky',repeatable:false},
@@ -281,6 +311,41 @@ function dateKeyInTz(d,tz){
   return `${o.year}-${o.month}-${o.day}`;
 }
 function todayKey(){return dateKeyInTz(new Date(),currentTz())}
+
+// ---------- dryckesprofiler & consumed-migrering ----------
+// consumed var tidigare ett enda globalt tal; är nu en lista datumstämplade
+// händelser (samma mönster som runs) så Historik kan visa spenderat per vecka.
+function normalizeConsumed(raw){
+  if(Array.isArray(raw))return raw.filter(x=>x&&typeof x.date==='string');
+  if(typeof raw==='number'&&raw>0)return Array.from({length:Math.round(raw)},()=>({id:uid(),date:todayKey()}));
+  return[];
+}
+function activeDrink(){
+  const list=S.settings.drinkProfiles&&S.settings.drinkProfiles.length?S.settings.drinkProfiles:DEFAULT_DRINK_PROFILES;
+  return list.find(d=>d.id===S.settings.activeDrinkId)||list[0];
+}
+function syncActiveDrink(){
+  const d=activeDrink();
+  S.settings.unit=d.label;
+  S.settings.kcalPerBeer=d.kcalPerUnit;
+}
+// Skapar dryckesprofiler om äldre sparad data saknar dem — bevarar användarens
+// ev. redan anpassade unit/kcalPerBeer som den nya "öl"-profilens värden,
+// istället för att tysta återställa till hårdkodade defaults.
+function ensureDrinkProfiles(){
+  if(!Array.isArray(S.settings.drinkProfiles)||!S.settings.drinkProfiles.length){
+    S.settings.drinkProfiles=DEFAULT_DRINK_PROFILES.map(d=>d.id==='ol'
+      ?{...d,label:S.settings.unit||d.label,kcalPerUnit:S.settings.kcalPerBeer||d.kcalPerUnit}
+      :{...d});
+    S.settings.activeDrinkId='ol';
+  }
+  if(!S.settings.drinkProfiles.some(d=>d.id===S.settings.activeDrinkId)){
+    S.settings.activeDrinkId=S.settings.drinkProfiles[0].id;
+  }
+  syncActiveDrink();
+}
+function consumedInWeek(wk){return S.consumed.filter(c=>mondayKey(c.date)===wk).length}
+
 function mondayKey(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   const day=(d.getDay()+6)%7;
@@ -326,7 +391,7 @@ function derive(){
   }
   const earned=totalKcal/S.settings.kcalPerBeer;
   const penalty=missed*S.settings.penaltyBeer;
-  const saldo=earned-S.consumed-penalty;
+  const saldo=earned-S.consumed.length-penalty;
   const cap=S.settings.bankCap;
   const capped=cap>0?Math.min(saldo,cap):saldo;
   const surplus=cap>0?Math.max(0,saldo-cap):0;
@@ -515,11 +580,16 @@ function openImportPreview(rows){
 // ---------- backup: export/import av all appdata ----------
 // Detta är HELA appens state (settings+runs+consumed+achievements), inte att
 // förväxla med löppass-importen ovan som bara lägger till rader i S.runs.
-const BACKUP_VERSION=1;
+const BACKUP_VERSION=2;
 // Migrationskedja: nyckel = version man migrerar FRÅN; värde = fn(parsed)->parsed@version+1.
-// Bara version 1 finns idag — lägg till nästa steg här när BACKUP_VERSION höjs,
-// rör aldrig tidigare steg.
-const BACKUP_MIGRATIONS={};
+// v1: consumed var ett tal, ingen dryckesprofil fanns. Ingen datatransformation
+// behövs här — applyBackupImport() kör normalizeConsumed()/ensureDrinkProfiles()
+// på ALL inläst data (både från boot och från backup-import) via samma delade
+// hjälpfunktioner, så det räcker att bara märka om versionen här.
+// Rör aldrig tidigare steg när BACKUP_VERSION höjs igen — lägg bara till nästa.
+const BACKUP_MIGRATIONS={
+  1:parsed=>({app:parsed.app,version:2,exportedAt:parsed.exportedAt,data:parsed.data})
+};
 function migrateBackup(parsed){
   let cur=parsed;
   while(cur.version<BACKUP_VERSION){
@@ -630,9 +700,10 @@ async function applyBackupImport(migrated){
   S={
     settings:Object.assign({},DEFAULTS.settings,d.settings),
     runs:Array.isArray(d.runs)?d.runs:[],
-    consumed:typeof d.consumed==='number'?d.consumed:0,
+    consumed:normalizeConsumed(d.consumed),
     achievements:Array.isArray(d.achievements)?d.achievements:[]
   };
+  ensureDrinkProfiles();
   await save();
 }
 
@@ -702,13 +773,13 @@ function renderOversikt(){
     <div class="sec-title">Notan i detalj</div>
     <div class="ledger">
       <div class="led-row"><span class="l">Intjänat (${nf(D.totalKcal,0)} kcal ÷ ${S.settings.kcalPerBeer})</span><span class="r pos">+${nf(D.earned,1)}</span></div>
-      <div class="led-row"><span class="l">Druckna ${u}</span><span class="r ${S.consumed>0?'neg':''}">${S.consumed>0?'−':''}${nf(S.consumed,1)}</span></div>
+      <div class="led-row"><span class="l">Druckna ${u}</span><span class="r ${S.consumed.length>0?'neg':''}">${S.consumed.length>0?'−':''}${nf(S.consumed.length,1)}</span></div>
       <div class="led-row"><span class="l">Missade veckor (${D.missed} × ${nf(S.settings.penaltyBeer,0)})</span><span class="r ${D.penalty>0?'neg':''}">${D.penalty>0?'−':''}${nf(D.penalty,1)}</span></div>
       ${D.surplus>0?`<div class="led-row"><span class="l">Överskott utöver cap (sparas ej)</span><span class="r" style="color:var(--amber)">−${nf(D.surplus,1)}</span></div>`:''}
       <div class="led-row tot"><span class="l">Saldo</span><span class="r ${inDebt?'neg':'pos'}">${nf(D.capped,1)} ${u}</span></div>
     </div>
   `;
-  $('#drink').onclick=async()=>{S.consumed+=1;await save();renderOversikt()};
+  $('#drink').onclick=async()=>{S.consumed.push({id:uid(),date:todayKey()});await save();renderOversikt()};
   $('#quicklog').onclick=()=>go('logga');
 }
 
@@ -736,7 +807,7 @@ function renderLogga(){
       </div>
       <button class="btn btn-amber" id="f-save" style="width:100%">Spara pass</button>
     </div>
-    <button class="btn btn-ghost" id="import-btn" style="width:100%;margin-top:10px">⇩ Importera pass (Samsung Health m.fl.)</button>
+    ${ENABLE_SAMSUNG_HEALTH?'<button class="btn btn-ghost" id="import-btn" style="width:100%;margin-top:10px">⇩ Importera pass (Samsung Health m.fl.)</button>':''}
     <div class="sec-title">Loggade pass</div>
     ${rows}
   `;
@@ -752,7 +823,7 @@ function renderLogga(){
     S.runs=S.runs.filter(r=>r.id!==b.dataset.del);await save();renderLogga();
   });
   document.querySelectorAll('[data-edit-run]').forEach(b=>b.onclick=()=>editRun(b.dataset.editRun));
-  $('#import-btn').onclick=openImportModal;
+  if(ENABLE_SAMSUNG_HEALTH)$('#import-btn').onclick=openImportModal;
 }
 
 function editRun(id){
@@ -827,16 +898,33 @@ function renderHistorik(){
   const unitLabel=historikMetric==='kcal'?'kcal':historikMetric==='ol'?u:'km'; // rå text, för .textContent
   const unitLabelHtml=historikMetric==='ol'?esc(u):unitLabel; // escapad variant för innerHTML (SVG <title>)
 
-  const n=bars.length,gap=4,chartTop=6,baseline=110,chartH=baseline-chartTop;
+  const n=bars.length,gap=4,chartTop=18,baseline=110,chartH=baseline-chartTop;
   const barW=(300-gap*(n-1))/n;
   const maxVal=Math.max(1,...bars.map(w=>metricValue(w,historikMetric)));
+  const grid=(max,dec2)=>[0,.5,1].map(f=>{
+    const y=baseline-chartH*f;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="300" y2="${y.toFixed(1)}" class="hk-grid"/><text x="2" y="${(y-2).toFixed(1)}" class="hk-gridlabel">${nf(max*f,dec2)}</text>`;
+  }).join('');
   const rects=bars.map((w,i)=>{
     const val=metricValue(w,historikMetric);
     const h=Math.max(3,chartH*(val/maxVal)),y=baseline-h,x=i*(barW+gap); // min-höjd så en 0-veckas stapel förblir synlig och tryckbar
     const cls=w.status==='met'?'hk-met':w.status==='missed'?'hk-missed':'hk-pending';
+    const labelY=Math.max(9,y-3);
     return `<rect class="hk-bar ${cls}" data-i="${i}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2">
       <title>Vecka ${isoWeekNum(w.wk)}, ${weekSpanLabel(w.wk)}: ${nf(val,dec)} ${unitLabelHtml}</title>
-    </rect>`;
+    </rect>
+    <text x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" class="hk-vallabel">${nf(val,dec)}</text>`;
+  }).join('');
+
+  const spentByWeek=bars.map(w=>({wk:w.wk,earned:w.beers,spent:consumedInWeek(w.wk)}));
+  const maxEs=Math.max(1,...spentByWeek.flatMap(w=>[w.earned,w.spent]));
+  const barW2=(barW-3)/2;
+  const esRects=spentByWeek.map((w,i)=>{
+    const gx=i*(barW+gap);
+    const eh=Math.max(2,chartH*(w.earned/maxEs)),ey=baseline-eh;
+    const sh=Math.max(2,chartH*(w.spent/maxEs)),sy=baseline-sh;
+    return `<rect class="es-earn" x="${gx.toFixed(1)}" y="${ey.toFixed(1)}" width="${barW2.toFixed(1)}" height="${eh.toFixed(1)}" rx="1.5"><title>Vecka ${isoWeekNum(w.wk)}: intjänat ${nf(w.earned,1)} ${esc(u)}</title></rect>
+      <rect class="es-spend" x="${(gx+barW2+3).toFixed(1)}" y="${sy.toFixed(1)}" width="${barW2.toFixed(1)}" height="${sh.toFixed(1)}" rx="1.5"><title>Vecka ${isoWeekNum(w.wk)}: spenderat ${nf(w.spent,1)} ${esc(u)}</title></rect>`;
   }).join('');
 
   const listRows=list.map(w=>`
@@ -863,8 +951,16 @@ function renderHistorik(){
       <button data-m="kcal" class="${historikMetric==='kcal'?'active':''}">Kcal</button>
       <button data-m="ol" class="${historikMetric==='ol'?'active':''}">${esc(u)}</button>
     </div>
-    <svg id="hist-chart" viewBox="0 0 300 120" style="width:100%;height:120px;display:block;margin-top:14px;overflow:visible">${rects}</svg>
+    <svg id="hist-chart" viewBox="0 0 300 120" style="width:100%;height:120px;display:block;margin-top:14px;overflow:visible">${grid(maxVal,dec)}${rects}</svg>
     <div class="week-need" id="hist-readout">Tryck på en stapel för att se veckans värde.</div>
+
+    <div class="sec-title">Intjänat vs spenderat</div>
+    <div class="hk-legend">
+      <span><i style="background:var(--green)"></i>Intjänat</span>
+      <span><i style="background:var(--red)"></i>Spenderat</span>
+    </div>
+    <svg viewBox="0 0 300 120" style="width:100%;height:120px;display:block;margin-top:8px;overflow:visible">${grid(maxEs,1)}${esRects}</svg>
+
     <div class="sec-title">Per vecka</div>
     <div class="ledger">${listRows}</div>
   `;
@@ -887,14 +983,26 @@ function tzList(){
 function renderInstallningar(){
   const s=S.settings;const u=esc(s.unit);
   const tzOpts=tzList().map(tz=>`<option value="${tz}" ${s.timezone===tz?'selected':''}>${tz}</option>`).join('');
+  const drinkRows=s.drinkProfiles.map(d=>`
+    <div class="dprofile ${d.id===s.activeDrinkId?'active':''}" data-drink="${d.id}">
+      <span class="dp-check">${d.id===s.activeDrinkId?'✓':''}</span>
+      <span class="dp-ico">${d.icon}</span>
+      <span class="dp-label">${esc(d.label)}</span>
+      <span class="dp-kcal mono">${nf(d.kcalPerUnit,0)} kcal</span>
+      <button class="edit" data-edit-drink="${d.id}">✎</button>
+    </div>`).join('');
   $('#v-installningar').innerHTML=`
+    <div class="sec-title">Dryck</div>
+    <div class="tab-card" style="display:block;padding:6px 14px">
+      ${drinkRows}
+    </div>
+    <button class="btn btn-ghost" id="add-drink" style="width:100%;margin-top:10px">+ Ny dryck</button>
+
     <div class="sec-title">Regler</div>
     <div class="tab-card" style="display:block;padding:6px 18px">
-      <div class="setline"><div><div class="sl">Kalorier per ${u}</div><div class="sd">Högre = du får springa mer per belöning</div></div><input type="number" id="s-kcal" value="${s.kcalPerBeer}"></div>
       <div class="setline"><div><div class="sl">Pass per vecka</div><div class="sd">Kravet för att slippa straff</div></div><input type="number" id="s-need" value="${s.needPerWeek}"></div>
       <div class="setline"><div><div class="sl">Straff per missad vecka</div><div class="sd">Antal ${u} som dras (saldo får gå minus)</div></div><input type="number" id="s-pen" value="${s.penaltyBeer}"></div>
       <div class="setline"><div><div class="sl">Bank-cap</div><div class="sd">Max sparade ${u}. 0 = ingen gräns</div></div><input type="number" id="s-cap" value="${s.bankCap}"></div>
-      <div class="setline"><div><div class="sl">Enhet</div><div class="sd">Vad belöningen heter</div></div><input type="text" id="s-unit" value="${esc(s.unit)}" style="width:110px"></div>
       <div class="setline"><div><div class="sl">Tidszon</div><div class="sd">Avgör vad som räknas som "idag" och veckogränser</div></div><select id="s-tz" style="width:170px">${tzOpts}</select></div>
     </div>
     <button class="btn btn-amber" id="s-save" style="width:100%;margin-top:16px">Spara regler</button>
@@ -912,15 +1020,19 @@ function renderInstallningar(){
 
     <button class="danger" id="s-reset">Nollställ all data</button>
   `;
+  document.querySelectorAll('.dprofile').forEach(el=>el.onclick=async e=>{
+    if(e.target.closest('[data-edit-drink]'))return;
+    S.settings.activeDrinkId=el.dataset.drink;
+    syncActiveDrink();
+    await save();renderInstallningar();
+  });
+  document.querySelectorAll('[data-edit-drink]').forEach(b=>b.onclick=e=>{e.stopPropagation();editDrinkProfile(b.dataset.editDrink)});
+  $('#add-drink').onclick=()=>editDrinkProfile(null);
   $('#s-save').onclick=async()=>{
-    S.settings={
-      kcalPerBeer:Math.max(1,parseFloat($('#s-kcal').value)||250),
-      needPerWeek:Math.max(1,parseInt($('#s-need').value)||1),
-      penaltyBeer:Math.max(0,parseFloat($('#s-pen').value)||0),
-      bankCap:Math.max(0,parseFloat($('#s-cap').value)||0),
-      unit:($('#s-unit').value||'öl').trim(),
-      timezone:$('#s-tz').value||DEFAULT_TZ
-    };
+    S.settings.needPerWeek=Math.max(1,parseInt($('#s-need').value)||1);
+    S.settings.penaltyBeer=Math.max(0,parseFloat($('#s-pen').value)||0);
+    S.settings.bankCap=Math.max(0,parseFloat($('#s-cap').value)||0);
+    S.settings.timezone=$('#s-tz').value||DEFAULT_TZ;
     await save();flash($('#s-save'),'Sparat ✓');renderInstallningar();
   };
   $('#bak-export-btn').onclick=openBackupExportModal;
@@ -928,7 +1040,46 @@ function renderInstallningar(){
   $('#s-reset').onclick=()=>{
     openModal(`<h3>Nollställa?</h3><p style="color:var(--mut);font-size:14px;line-height:1.5;margin-bottom:18px">Detta raderar alla pass, mål och inställningar. Går inte att ångra.</p>
       <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Avbryt</button><button class="btn" style="background:var(--red);color:#fff" id="do-reset">Radera allt</button></div>`);
-    $('#do-reset').onclick=async()=>{S=JSON.parse(JSON.stringify(DEFAULTS));await save();closeModal();go('oversikt')};
+    $('#do-reset').onclick=async()=>{S=JSON.parse(JSON.stringify(DEFAULTS));ensureDrinkProfiles();await save();closeModal();go('oversikt')};
+  };
+}
+
+// ---------- dryckesprofil-editor ----------
+function editDrinkProfile(id){
+  const isNew=!id;
+  const d=id?S.settings.drinkProfiles.find(x=>x.id===id):{icon:'🍺',label:'',kcalPerUnit:250};
+  const icons=['🍺','🥃','🍷','🧃','☕','🥤','🍹','🧉'];
+  const iconBtns=icons.map(ic=>`<button type="button" class="ic-pick" data-ic="${ic}" style="font-size:22px;padding:8px;border-radius:10px;border:1px solid ${d.icon===ic?'var(--amber)':'var(--line)'};background:${d.icon===ic?'rgba(245,166,35,.12)':'var(--bg2)'}">${ic}</button>`).join('');
+  openModal(`
+    <h3>${isNew?'Ny dryck':'Redigera dryck'}</h3>
+    <div class="field"><label>Ikon</label><div style="display:flex;gap:6px;flex-wrap:wrap" id="dp-ic-row">${iconBtns}</div></div>
+    <div class="field"><label style="display:flex;justify-content:space-between">${charCountLabel('Namn',20)}</label><input type="text" id="dp-label" value="${esc(d.label)}" placeholder="t.ex. Cider" maxlength="20"></div>
+    <div class="field"><label>Kalorier per enhet</label><input type="number" id="dp-kcal" value="${d.kcalPerUnit}" inputmode="decimal" step="any"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Avbryt</button>
+      <button class="btn btn-amber" id="dp-save">Spara</button>
+    </div>
+    ${!isNew&&S.settings.drinkProfiles.length>1?'<button class="danger" id="dp-del">Ta bort dryck</button>':''}
+  `);
+  let chosen=d.icon;
+  document.querySelectorAll('#dp-ic-row .ic-pick').forEach(b=>b.onclick=()=>{chosen=b.dataset.ic;
+    document.querySelectorAll('#dp-ic-row .ic-pick').forEach(x=>{x.style.borderColor='var(--line)';x.style.background='var(--bg2)'});
+    b.style.borderColor='var(--amber)';b.style.background='rgba(245,166,35,.12)'});
+  wireCharCount('dp-label');
+  $('#dp-save').onclick=async()=>{
+    const label=$('#dp-label').value.trim()||'Dryck';
+    const kcalPerUnit=Math.max(1,parseFloat(($('#dp-kcal').value||'0').replace(',','.'))||250);
+    const obj={id:id||uid(),icon:chosen,label,kcalPerUnit};
+    if(id)S.settings.drinkProfiles=S.settings.drinkProfiles.map(x=>x.id===id?obj:x);
+    else{S.settings.drinkProfiles.push(obj);S.settings.activeDrinkId=obj.id}
+    syncActiveDrink();
+    await save();closeModal();renderInstallningar();
+  };
+  if(!isNew&&S.settings.drinkProfiles.length>1)$('#dp-del').onclick=async()=>{
+    S.settings.drinkProfiles=S.settings.drinkProfiles.filter(x=>x.id!==id);
+    if(S.settings.activeDrinkId===id)S.settings.activeDrinkId=S.settings.drinkProfiles[0].id;
+    syncActiveDrink();
+    await save();closeModal();renderInstallningar();
   };
 }
 
@@ -941,8 +1092,8 @@ function editAch(id){
   openModal(`
     <h3>${id?'Redigera mål':'Nytt mål'}</h3>
     <div class="field"><label>Ikon</label><div style="display:flex;gap:6px;flex-wrap:wrap" id="ic-row">${iconBtns}</div></div>
-    <div class="field"><label>Namn</label><input type="text" id="a-name" value="${esc(a.name)}" placeholder="t.ex. Whiskyglas"></div>
-    <div class="field"><label>Belöning</label><input type="text" id="a-reward" value="${esc(a.reward)}" placeholder="t.ex. 1 glas whisky"></div>
+    <div class="field"><label style="display:flex;justify-content:space-between">${charCountLabel('Namn',20)}</label><input type="text" id="a-name" value="${esc(a.name)}" placeholder="t.ex. Whiskyglas" maxlength="20"></div>
+    <div class="field"><label style="display:flex;justify-content:space-between">${charCountLabel('Belöning',80)}</label><input type="text" id="a-reward" value="${esc(a.reward)}" placeholder="t.ex. 1 glas whisky" maxlength="80"></div>
     <div class="two">
       <div class="field"><label>Villkor</label><select id="a-cond">${opts}</select></div>
       <div class="field"><label>Tröskel</label><input type="number" id="a-th" value="${a.threshold}" inputmode="decimal" step="any"></div>
@@ -960,6 +1111,7 @@ function editAch(id){
   document.querySelectorAll('.ic-pick').forEach(b=>b.onclick=()=>{chosen=b.dataset.ic;
     document.querySelectorAll('.ic-pick').forEach(x=>{x.style.borderColor='var(--line)';x.style.background='var(--bg2)'});
     b.style.borderColor='var(--amber)';b.style.background='rgba(245,166,35,.12)'});
+  wireCharCount('a-name');wireCharCount('a-reward');
   $('#a-save').onclick=async()=>{
     const name=$('#a-name').value.trim()||'Mål';
     const obj={id:id||uid(),icon:chosen,name,reward:$('#a-reward').value.trim()||'Belöning',
@@ -972,6 +1124,14 @@ function editAch(id){
 
 // ---------- helpers ----------
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function charCountLabel(text,max){return `<span>${text}</span><span class="charcount" data-max="${max}">0/${max}</span>`}
+function wireCharCount(inputId){
+  const input=$('#'+inputId);if(!input)return;
+  const counter=input.closest('.field')?.querySelector('.charcount');if(!counter)return;
+  const max=+counter.dataset.max;
+  const update=()=>counter.textContent=input.value.length+'/'+max;
+  input.oninput=update;update();
+}
 function openModal(html){$('#modal').innerHTML=html;$('#lb-scrim')?.classList.add('show')}
 function closeModal(){$('#lb-scrim')?.classList.remove('show')}
 $('#lb-scrim')?.addEventListener('click',e=>{if(e.target.id==='lb-scrim')closeModal()});
@@ -997,7 +1157,8 @@ if('serviceWorker' in navigator){
   S=saved||JSON.parse(JSON.stringify(DEFAULTS));
   // migrera nya nycklar om gammal data saknar dem
   S.settings=Object.assign({},DEFAULTS.settings,S.settings);
-  S.consumed=S.consumed||0;
+  S.consumed=normalizeConsumed(S.consumed);
+  ensureDrinkProfiles();
   renderOversikt();
 })();
 </script>

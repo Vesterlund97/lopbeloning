@@ -1,5 +1,5 @@
 // Bumpa versionen när index.html/manifest/ikoner ändras så gamla cachar rensas.
-const CACHE = 'lopbeloning-v4';
+const CACHE = 'lopbeloning-v5';
 const ASSETS = [
   './',
   './index.html',
